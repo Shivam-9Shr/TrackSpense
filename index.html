@@ -175,7 +175,7 @@
                         <div id="person-selector" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl flex items-center justify-between cursor-pointer hover:bg-gray-600 transition-all">
                            <div class="flex items-center">
                                 <div id="selected-person-avatar-container" class="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center mr-3 overflow-hidden">
-                                    <svg id="selected-person-avatar-placeholder" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-400"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4zM12 12a4 4 0 1 0-4-4a4 4 0 0 0 4 4z"></path></svg>
+                                    <svg id="selected-person-avatar-placeholder" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-400"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4zM4 7h16M4 11h16M4 15h16M4 19h16" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="12" cy="7" r="4"></circle></svg>
                                     <img id="selected-person-avatar" src="" class="hidden w-full h-full object-cover">
                                 </div>
                                 <span id="selected-person-name" class="text-gray-400">Select a person</span>
@@ -382,7 +382,6 @@ const firebaseConfig = {
 };
         
         let db, auth, userId;
-        let appId; // <-- added
         let peopleMap = {}, spendingChart, earningsChart;
         let currentMode = 'personal';
         let allTransactions = [];
@@ -480,32 +479,33 @@ const firebaseConfig = {
         let app;
         try {
             app = initializeApp(firebaseConfig);
+            // ensure appId is available for Firestore paths (prevents ReferenceError)
+            const appOptions = app.options || {};
+            const inferredAppId = appOptions.appId || appOptions.projectId || firebaseConfig.appId || firebaseConfig.projectId;
+            window.appId = inferredAppId; // keep global for other code that references appId
             db = getFirestore(app);
             auth = getAuth(app);
-            appId = app.options?.projectId || firebaseConfig.projectId; // <-- added: ensure appId is set
 
-            // Try to read redirect result immediately so redirect sign-in errors are handled earlier
-            (async () => {
-                try {
-                    const result = await getRedirectResult(auth);
-                    if (result && result.user) {
-                        console.log('Redirect sign-in successful:', result.user);
-                        // onAuthStateChanged will handle showing the app; no further action needed
-                    }
-                } catch (err) {
-                    console.error('getRedirectResult error:', err);
-                    if (authErrorEl) {
-                        if (err.code === 'auth/unauthorized-domain') {
-                            authErrorEl.textContent = "This domain is not authorized for Google Sign-In. Add this origin in your Firebase project's Authorized domains.";
-                        } else {
-                            authErrorEl.textContent = err.message || 'Authentication redirect failed.';
-                        }
+            // Immediately read redirect result to surface any redirect errors (unauthorized-domain etc.)
+            getRedirectResult(auth).then((result) => {
+                if (result && result.user) {
+                    console.log('Redirect sign-in successful:', result.user);
+                    // onAuthStateChanged will handle UI show
+                }
+            }).catch((err) => {
+                console.error('getRedirectResult error:', err);
+                if (authErrorEl) {
+                    if (err && err.code === 'auth/unauthorized-domain') {
+                        authErrorEl.textContent = "This domain is not authorized for Google Sign-In. Add this origin in your Firebase project's Authorized domains.";
+                    } else {
+                        authErrorEl.textContent = err?.message || 'Authentication redirect failed.';
                     }
                 }
-            })();
+            });
+
         } catch(e) {
             console.error("Firebase initialization failed. Please check your firebaseConfig object.", e);
-            authErrorEl.textContent = "Firebase configuration is missing or invalid. The app cannot start.";
+            if (authErrorEl) authErrorEl.textContent = "Firebase configuration is missing or invalid. The app cannot start.";
         }
         
         onAuthStateChanged(auth, async (user) => {
