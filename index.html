@@ -367,7 +367,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, doc, deleteDoc, updateDoc, deleteField, setDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -486,10 +486,19 @@ const firebaseConfig = {
             db = getFirestore(app);
             auth = getAuth(app);
 
+            // ensure auth state is persisted across redirects / reloads
+            try {
+                await setPersistence(auth, browserLocalPersistence);
+                console.log('Auth persistence set: browserLocalPersistence');
+            } catch (pErr) {
+                console.warn('Failed to set auth persistence:', pErr);
+            }
+
             // Immediately read redirect result to surface any redirect errors (unauthorized-domain etc.)
             getRedirectResult(auth).then((result) => {
+                console.log('getRedirectResult:', result);
                 if (result && result.user) {
-                    console.log('Redirect sign-in successful:', result.user);
+                    console.log('Redirect sign-in successful (getRedirectResult):', result.user);
                     // onAuthStateChanged will handle UI show
                 }
             }).catch((err) => {
@@ -507,50 +516,66 @@ const firebaseConfig = {
             console.error("Firebase initialization failed. Please check your firebaseConfig object.", e);
             if (authErrorEl) authErrorEl.textContent = "Firebase configuration is missing or invalid. The app cannot start.";
         }
-        
+
         onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
+            console.log('onAuthStateChanged fired. user:', user, 'auth.currentUser:', auth?.currentUser);
+            try {
+                if (user) {
+                    userId = user.uid;
 
-                // Populate profile UI
-                profileName.textContent = user.displayName || 'User';
-                if (user.photoURL) {
-                    profileAvatar.src = user.photoURL;
+                    // Populate profile UI
+                    profileName.textContent = user.displayName || 'User';
+                    if (user.photoURL) {
+                        profileAvatar.src = user.photoURL;
+                    } else {
+                        const initials = getInitials(user.displayName || 'User');
+                        profileAvatar.src = `https://placehold.co/32x32/4A5568/E2E8F0?text=${initials}`;
+                    }
+
+                    authView.style.display = 'none';
+                    appView.style.display = 'block';
+                    document.body.classList.remove('items-center');
+                    await checkAndProcessRecurringTransactions();
+                    switchMode(currentMode);
+                    initSpotlightEffect();
                 } else {
-                    const initials = getInitials(user.displayName || 'User');
-                    profileAvatar.src = `https://placehold.co/32x32/4A5568/E2E8F0?text=${initials}`;
-                }
+                    userId = null;
+                    authView.style.display = 'block';
+                    appView.style.display = 'none';
+                    document.body.classList.add('items-center');
+                    unsubscribeAll();
 
-                authView.style.display = 'none';
-                appView.style.display = 'block';
-                document.body.classList.remove('items-center');
-                await checkAndProcessRecurringTransactions();
-                switchMode(currentMode);
-                initSpotlightEffect();
-            } else {
-                userId = null;
+                    // Handle the redirect result which can contain an error
+                    getRedirectResult(auth).catch((error) => {
+                        console.error("Error from redirect result:", error);
+                        if (error && error.code === 'auth/unauthorized-domain') {
+                             authErrorEl.textContent = "This domain is not authorized for Google Sign-In. Please add it to your Firebase project's settings.";
+                        } else if (error) {
+                            authErrorEl.textContent = error.message || JSON.stringify(error);
+                        }
+                    });
+                }
+            } catch (handlerErr) {
+                console.error('Error in onAuthStateChanged handler:', handlerErr);
+                // fallback to showing login if handler crashes
                 authView.style.display = 'block';
                 appView.style.display = 'none';
-                document.body.classList.add('items-center');
-                unsubscribeAll();
-                
-                // Handle the redirect result which can contain an error
-                getRedirectResult(auth).catch((error) => {
-                    console.error("Error from redirect result:", error);
-                    if (error.code === 'auth/unauthorized-domain') {
-                         authErrorEl.textContent = "This domain is not authorized for Google Sign-In. Please add it to your Firebase project's settings.";
-                    } else {
-                        authErrorEl.textContent = error.message;
-                    }
-                });
             }
         });
         
         // --- AUTHENTICATION LOGIC ---
-        googleSigninBtn.addEventListener('click', () => {
+        googleSigninBtn.addEventListener('click', async () => {
             authErrorEl.textContent = '';
             const provider = new GoogleAuthProvider();
-            signInWithRedirect(auth, provider);
+            try {
+                // ensure persistence is set right before redirect
+                try { await setPersistence(auth, browserLocalPersistence); } catch(e) { console.warn('setPersistence before redirect failed', e); }
+                console.log('Starting signInWithRedirect...');
+                signInWithRedirect(auth, provider);
+            } catch (err) {
+                console.error('signInWithRedirect failed:', err);
+                authErrorEl.textContent = err?.message || 'Failed to start sign-in.';
+            }
         });
 
         signOutBtn.addEventListener('click', async () => {
@@ -1094,28 +1119,16 @@ const firebaseConfig = {
                     const d = tx.createdAt.toDate();
                     date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                 }
-                const description = `"${(tx.description || '').replace(/"/g, '""')}"`;
-                
-                const rowData = [`"${date}"`, description, tx.person || '', tx.amount, tx.type];
-
-                if (isBusiness) {
-                    rowData.push(tx.status || 'N/A');
-                }
-                
-                return rowData.join(',');
+                return isBusiness
+                    ? `${date},${tx.description},${tx.person},${tx.amount.toFixed(2)},${tx.type},${tx.status}`
+                    : `${date},${tx.description},${tx.person},${tx.amount.toFixed(2)},${tx.type}`;
             });
 
-            const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
+            const csvContent = `data:text/csv;charset=utf-8,${headers}\n${rows.join('\n')}`;
             const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-
-            let filename = `${currentMode}_transactions.csv`;
-            if (startDateValue || endDateValue || (currentMode === 'business' && selectedClient)) {
-                filename = `${currentMode}_transactions_filtered.csv`;
-            }
-
-            link.setAttribute("download", filename);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', `transactions_${new Date().toISOString().split('T')[0]}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
