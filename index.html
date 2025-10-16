@@ -380,7 +380,9 @@ const firebaseConfig = {
   appId: "1:596327333035:web:e2ec1998729a81e7258bee",
   measurementId: "G-QXTERJV3V8"
 };
-        
+
+        const appId = firebaseConfig.appId;
+
         let db, auth, userId;
         let peopleMap = {}, spendingChart, earningsChart;
         let currentMode = 'personal';
