@@ -1,1281 +1,222 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transaction Tracker</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .transaction-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        /* Custom scrollbar */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #1f2937; /* gray-800 */
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #4b5563; /* gray-600 */
-            border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #6b7280; /* gray-500 */
-        }
-        .person-item:hover {
-            background-color: #374151; /* gray-700 */
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .loader {
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top-color: #FBBF24;
-            border-radius: 50%;
-            width: 1.5rem;
-            height: 1.5rem;
-            animation: spin 1s linear infinite;
-        }
-        
-        /* Magic Bento Spotlight Effect CSS */
-        .spotlight {
-            position: fixed;
-            width: 400px;
-            height: 400px;
-            border-radius: 50%;
-            pointer-events: none;
-            background: radial-gradient(circle,
-                rgba(251, 191, 36, 0.08) 0%,
-                rgba(251, 191, 36, 0.05) 15%,
-                transparent 50%
-            );
-            transform: translate(-50%, -50%);
-            mix-blend-mode: screen;
-            z-index: 50;
-            opacity: 0;
-            will-change: transform, opacity;
-        }
-        .glow-card {
-            position: relative;
-            overflow: hidden;
-            --glow-x: 50%;
-            --glow-y: 50%;
-            --glow-intensity: 0;
-            --glow-radius: 400px;
-        }
-        .glow-card::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            padding: 2px;
-            background: radial-gradient(
-                var(--glow-radius) circle at var(--glow-x) var(--glow-y),
-                rgba(251, 191, 36, calc(var(--glow-intensity) * 0.4)) 0%,
-                rgba(251, 191, 36, calc(var(--glow-intensity) * 0.2)) 30%,
-                transparent 60%
-            );
-            border-radius: inherit;
-            mask:
-                linear-gradient(#fff 0 0) content-box,
-                linear-gradient(#fff 0 0);
-            mask-composite: subtract;
-            -webkit-mask:
-                linear-gradient(#fff 0 0) content-box,
-                linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-            z-index: 1;
-        }
-    </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Transaction Tracker — Auth Fix</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:#0f172a; color:#e5e7eb; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+    .card { background:#0b1220; border:1px solid #1f2937; padding:28px; border-radius:12px; width:420px; box-shadow: 0 6px 24px rgba(2,6,23,0.6); }
+    .btn { display:flex; align-items:center; gap:10px; background:#111827; color:#fff; padding:10px 14px; border-radius:12px; cursor:pointer; border:1px solid #374151; }
+    .btn:active { transform: translateY(1px); }
+    .loader { width:20px; height:20px; border-radius:50%; border:3px solid rgba(255,255,255,0.15); border-top-color:#f59e0b; animation:spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .hidden { display:none; }
+    .small { font-size:13px; color:#9ca3af; }
+    .error { color:#fb7185; font-weight:600; }
+    .hint { font-size:13px; color:#9ca3af; margin-top:8px; }
+    .logo { width:20px; height:20px; }
+    pre { background:#071022; padding:8px; border-radius:8px; overflow:auto; max-height:160px; color:#cbd5e1; font-size:13px; }
+  </style>
 </head>
-<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-4">
+<body>
+  <div class="card" id="card">
+    <h2 style="font-size:20px;margin-bottom:8px">Transaction Tracker — Sign in</h2>
+    <p class="small" id="sub">Sign in with Google to continue. (This build tries **popup** first, then **redirect**.)</p>
 
-    <!-- Global Loader -->
-    <div id="global-loader" class="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-[100]">
-        <div class="loader" style="width: 2.5rem; height: 2.5rem; border-width: 3px;"></div>
-        <p class="text-gray-400 mt-4">Authenticating...</p>
+    <div style="margin-top:18px;">
+      <button id="google-btn" class="btn" aria-label="Sign in with Google">
+        <img class="logo" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><path fill='%23FFC107' d='M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z'/><path fill='%23FF3D00' d='m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z'/><path fill='%234CAF50' d='m24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.222 0-9.618-3.234-11.303-7.618l-6.571 4.819A20 20 0 0 0 24 44z'/><path fill='%231976D2' d='M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C44.434 36.316 48 30.732 48 24c0-1.341-.138-2.65-.389-3.917z'/></svg>" />
+        <span id="google-text">Sign in with Google</span>
+        <div id="btn-loader" class="loader hidden" aria-hidden="true"></div>
+      </button>
     </div>
 
-    <!-- Auth View -->
-    <div id="auth-view" class="w-full max-w-md mx-auto hidden">
-        <div class="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
-            <h1 class="text-3xl font-bold text-center text-white mb-2">Welcome!</h1>
-            <p class="text-gray-400 text-center mb-8">Sign in with your Google account to securely access your transaction tracker.</p>
-            
-            <button id="google-signin-btn" class="w-full flex items-center justify-center gap-3 bg-gray-700 font-medium py-3 rounded-xl hover:bg-gray-600 transition-colors">
-                <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="m24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.222 0-9.618-3.234-11.303-7.618l-6.571 4.819A20 20 0 0 0 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C44.434 36.316 48 30.732 48 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
-                <span id="google-signin-text">Sign in with Google</span>
-                <div id="google-signin-loader" class="loader hidden" style="width: 1.25rem; height: 1.25rem; border-width: 2px;"></div>
-            </button>
-            
-            <p id="auth-error" class="text-red-500 text-center text-sm mt-4"></p>
-        </div>
-    </div>
-    
-    <!-- App View (hidden by default) -->
-    <div id="app-view" class="hidden w-full max-w-3xl mx-auto bg-gray-800 rounded-2xl shadow-xl p-6 md:p-8 border border-gray-700 relative">
-        <div class="absolute top-4 right-4">
-            <div id="profile-button" class="flex items-center space-x-2 cursor-pointer p-1.5 rounded-full bg-gray-700/50 hover:bg-gray-700 transition-colors">
-                <img id="profile-avatar" src="" class="w-8 h-8 rounded-full object-cover bg-gray-600">
-                <span id="profile-name" class="hidden md:block text-sm font-medium text-gray-200 pr-2"></span>
-            </div>
-            <div id="profile-dropdown" class="absolute right-0 mt-2 w-48 bg-gray-700 rounded-xl shadow-lg z-50 hidden py-1">
-                <button id="sign-out-btn" class="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-3 rounded-xl">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                      <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0z"/>
-                      <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708z"/>
-                    </svg>
-                    Sign Out
-                </button>
-            </div>
-        </div>
-        
-        <header class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-white">Transaction Tracker</h1>
-            <p class="text-gray-400 mt-2">Log your expenses and receivables with ease.</p>
-        </header>
+    <p class="hint" id="hint">If the button doesn't open a popup, you may need to allow popups or add this domain to Firebase → Authentication → Authorized domains.</p>
 
-        <!-- Mode Switcher -->
-        <section class="mb-8 flex justify-center">
-            <div class="bg-gray-700 p-1 rounded-xl flex space-x-1">
-                <button id="personal-mode-btn" class="px-6 py-2 rounded-xl text-sm font-medium transition-colors bg-yellow-500 text-black">Personal</button>
-                <button id="business-mode-btn" class="px-6 py-2 rounded-xl text-sm font-medium transition-colors text-gray-300 hover:bg-gray-600">Business</button>
-            </div>
-        </section>
-
-        <!-- Summary Section -->
-        <section id="summary-section" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-             <div id="daily-total-card" class="bg-gray-700 p-6 rounded-xl text-center glow-card">
-                <h2 id="daily-total-label" class="text-base font-medium text-yellow-400">Today's Spending</h2>
-                <p id="daily-total" class="text-3xl font-bold text-yellow-300 mt-2">₹0.00</p>
-            </div>
-            <div class="bg-gray-700 p-6 rounded-xl text-center glow-card">
-                <h2 id="monthly-total-label" class="text-base font-medium text-yellow-400">This Month's Spending</h2>
-                <p id="monthly-total" class="text-3xl font-bold text-yellow-300 mt-2">₹0.00</p>
-            </div>
-            <div class="bg-gray-700 p-6 rounded-xl text-center glow-card">
-                <h2 id="receivable-total-label" class="text-base font-medium text-yellow-400">Pending to Collect</h2>
-                <p id="receivable-total" class="text-3xl font-bold text-yellow-300 mt-2">₹0.00</p>
-            </div>
-        </section>
-
-        <!-- Input Form -->
-        <section class="mb-8">
-            <form id="transaction-form" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div id="description-field-wrapper" class="md:col-span-1">
-                        <label for="description" class="block text-sm font-medium text-gray-400 mb-1">Description</label>
-                        <input type="text" id="description" placeholder="e.g., Lunch, Movie tickets" required class="w-full px-4 py-3 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition">
-                    </div>
-                     <div>
-                        <label for="person-selector" class="block text-sm font-medium text-gray-400 mb-1">Person</label>
-                        <div id="person-selector" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl flex items-center justify-between cursor-pointer hover:bg-gray-600 transition-all">
-                           <div class="flex items-center">
-                                <div id="selected-person-avatar-container" class="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center mr-3 overflow-hidden">
-                                    <svg id="selected-person-avatar-placeholder" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-400"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                                    <img id="selected-person-avatar" src="" class="hidden w-full h-full object-cover">
-                                </div>
-                                <span id="selected-person-name" class="text-gray-400">Select a person</span>
-                           </div>
-                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-                        </div>
-                        <input type="hidden" id="person">
-                    </div>
-                    <div>
-                        <label for="amount" class="block text-sm font-medium text-gray-400 mb-1">Amount (₹)</label>
-                        <input type="number" id="amount" placeholder="150" min="0.01" step="0.01" required class="w-full px-4 py-3 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition">
-                    </div>
-                </div>
-                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                    <div id="type-field-wrapper" class="md:col-span-3">
-                         <label for="type" class="block text-sm font-medium text-gray-400 mb-1">Transaction Type</label>
-                         <select id="type" class="w-full px-4 py-3 bg-gray-700 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition">
-                            <option value="expense" selected>Expense (I paid)</option>
-                            <option value="receivable">Receivable (To collect)</option>
-                        </select>
-                    </div>
-                    <button id="submit-btn" type="submit" class="w-full bg-yellow-500 text-black font-semibold py-3 px-4 rounded-xl hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition duration-300 shadow-sm md:col-start-4">
-                        Add Transaction
-                    </button>
-                </div>
-                 <!-- Recurring Transaction Fields -->
-                <div id="recurring-fields-wrapper" class="hidden space-y-2 md:flex md:space-y-0 md:space-x-4 md:items-end pt-2">
-                    <div class="flex-grow">
-                        <label for="frequency" class="block text-sm font-medium text-gray-400 mb-1">Frequency</label>
-                        <select id="frequency" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl">
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly" selected>Monthly</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="start-date" class="block text-sm font-medium text-gray-400 mb-1">Start Date</label>
-                        <input type="date" id="start-date" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl">
-                    </div>
-                </div>
-                <div id="recurring-options-wrapper" class="pt-2 flex justify-between items-center">
-                    <label class="flex items-center space-x-2 cursor-pointer text-sm text-gray-400">
-                        <input type="checkbox" id="is-recurring-checkbox" class="form-checkbox h-4 w-4 bg-gray-700 border-gray-600 rounded text-yellow-500 focus:ring-yellow-500">
-                        <span>Make this a recurring transaction</span>
-                    </label>
-                     <button type="button" id="manage-recurring-btn" class="text-sm text-yellow-400 hover:underline">Manage Recurring</button>
-                </div>
-            </form>
-        </section>
-        
-        <!-- Search and Export Section -->
-        <section class="my-6 space-y-4">
-            <div class="relative w-full">
-                <input type="text" id="search-input" placeholder="Search transactions..." class="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-yellow-500">
-                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                <div id="client-filter-wrapper" class="w-full hidden">
-                    <label for="client-filter-select" class="text-sm font-medium text-gray-400">Filter by Client</label>
-                    <select id="client-filter-select" class="w-full mt-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl">
-                        <option value="">All Clients</option>
-                    </select>
-                </div>
-                <div id="start-date-filter-wrapper" class="w-full">
-                    <label for="filter-start-date" class="text-sm font-medium text-gray-400">From</label>
-                    <input type="date" id="filter-start-date" class="w-full mt-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl">
-                </div>
-                <div id="end-date-filter-wrapper" class="w-full">
-                    <label for="filter-end-date" class="text-sm font-medium text-gray-400">To</label>
-                    <input type="date" id="filter-end-date" class="w-full mt-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl">
-                </div>
-                <button id="export-csv-btn" class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white font-semibold rounded-xl hover:bg-gray-500 transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Export CSV
-                </button>
-            </div>
-        </section>
-
-
-        <!-- Transaction Lists -->
-        <div id="personal-view">
-             <section id="budget-section" class="mb-6 bg-gray-700/50 p-4 rounded-xl">
-                <div class="flex justify-between items-center mb-2">
-                    <h3 class="font-semibold text-gray-300">Monthly Budget</h3>
-                    <div class="flex items-center gap-4">
-                        <button id="get-summary-btn" class="text-sm font-semibold text-black bg-yellow-500 hover:bg-yellow-600 px-3 py-1 rounded-lg transition">✨ Get Smart Summary</button>
-                        <button id="set-budget-btn" class="text-sm text-yellow-400 hover:underline">Set Budget</button>
-                    </div>
-                </div>
-                <div class="w-full bg-gray-600 rounded-full h-3">
-                    <div id="budget-progress" class="bg-green-500 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
-                </div>
-                <p id="budget-summary" class="text-right text-sm mt-1.5 text-gray-400">₹0.00 / ₹0.00</p>
-            </section>
-            <h2 class="text-xl font-semibold mb-4 border-b pb-2 border-gray-700">Transaction History</h2>
-            <div id="transaction-list" class="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar"></div>
-        </div>
-
-        <div id="business-view" class="hidden space-y-8">
-            <div>
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2 border-gray-700">Upcoming Payments</h2>
-                <div id="upcoming-list" class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar"></div>
-            </div>
-            <div>
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2 border-gray-700">Collected Payments</h2>
-                <div id="collected-list" class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar"></div>
-            </div>
-        </div>
-
-        <p id="loading-state" class="text-gray-500 text-center py-4">Loading transactions...</p>
-
-        <!-- Charts Section -->
-        <section id="charts-section" class="my-8">
-            <h2 class="text-xl font-semibold mb-4 border-b pb-2 border-gray-700">Visualizations</h2>
-            <div id="personal-chart-container" class="bg-gray-700/50 p-4 rounded-xl">
-                <canvas id="spending-chart"></canvas>
-            </div>
-            <div id="business-chart-container" class="hidden bg-gray-700/50 p-4 rounded-xl">
-                <canvas id="earnings-chart"></canvas>
-            </div>
-        </section>
-
+    <div id="status" style="margin-top:14px;">
+      <p id="status-line" class="small"></p>
+      <p id="error-line" class="error" style="margin-top:6px"></p>
     </div>
 
-    <!-- Modals -->
-    <div id="people-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-6 border border-gray-700">
-            <div class="flex justify-between items-center mb-4">
-                <h3 id="modal-title" class="text-xl font-bold text-white">Select or Add Person</h3>
-                <button id="close-people-modal-btn" class="text-gray-500 hover:text-white text-3xl leading-none">&times;</button>
-            </div>
-            <form id="add-person-form" class="space-y-3 mb-4">
-                <input type="text" id="new-person-name" placeholder="Add new person's name" required class="flex-grow w-full px-3 py-3 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
-                <button type="submit" id="add-person-btn" class="w-full bg-yellow-500 text-black font-semibold py-2 px-4 rounded-xl hover:bg-yellow-600">Add Person</button>
-            </form>
-            <div id="people-list-modal" class="max-h-60 overflow-y-auto space-y-1 custom-scrollbar pr-2"></div>
-        </div>
+    <details style="margin-top:10px;color:#9ca3af">
+      <summary style="cursor:pointer">Developer console logs</summary>
+      <pre id="console-log">No logs yet.</pre>
+    </details>
+
+    <div style="margin-top:10px" id="manual-instructions" class="small hidden">
+      <p><strong>Manual fix steps:</strong></p>
+      <ol>
+        <li>Open Firebase Console → Authentication → Authorized domains → Add <code id="origin"></code></li>
+        <li>Try again in an incognito window with extensions disabled.</li>
+        <li>If using a hosted preview (e.g. firebase preview URL), add that exact domain too.</li>
+      </ol>
     </div>
-    <div id="budget-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-gray-800 rounded-2xl shadow-xl w-full max-w-xs p-6 border border-gray-700">
-            <h3 class="text-xl font-bold text-white mb-4">Set Monthly Budget</h3>
-            <form id="budget-form">
-                <label for="budget-amount" class="block text-sm font-medium text-gray-400 mb-1">Budget Amount (₹)</label>
-                <input type="number" id="budget-amount" placeholder="5000" min="0" step="100" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl mb-4">
-                <div class="flex gap-2">
-                    <button type="button" id="cancel-budget-btn" class="w-full bg-gray-600 py-2 rounded-xl">Cancel</button>
-                    <button type="submit" class="w-full bg-yellow-500 text-black font-semibold py-2 rounded-xl">Save</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    <div id="recurring-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
-         <div class="bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg p-6 border border-gray-700">
-              <div class="flex justify-between items-center mb-4">
-                 <h3 class="text-xl font-bold text-white">Manage Recurring Transactions</h3>
-                 <button id="close-recurring-modal-btn" class="text-gray-500 hover:text-white text-3xl leading-none">&times;</button>
-            </div>
-            <div id="recurring-list-modal" class="max-h-80 overflow-y-auto space-y-2 custom-scrollbar pr-2"></div>
-         </div>
-    </div>
-    <div id="gemini-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
-         <div class="bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg p-6 border border-gray-700">
-              <div class="flex justify-between items-center mb-4">
-                 <h3 id="gemini-modal-title" class="text-xl font-bold text-white">✨ AI Assistant</h3>
-                 <button id="close-gemini-modal-btn" class="text-gray-500 hover:text-white text-3xl leading-none">&times;</button>
-            </div>
-            <div id="gemini-modal-content" class="max-h-80 overflow-y-auto space-y-2 custom-scrollbar pr-2 text-gray-300">
-                <div class="flex justify-center items-center h-32">
-                    <div class="loader"></div>
-                </div>
-            </div>
-              <div id="gemini-modal-actions" class="mt-4 hidden">
-                   <button id="copy-gemini-content-btn" class="w-full bg-yellow-500 text-black font-semibold py-2 px-4 rounded-xl hover:bg-yellow-600">Copy to Clipboard</button>
-              </div>
-         </div>
-    </div>
-    <!-- Confirmation Modal -->
-    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-6 border border-gray-700">
-            <h3 id="confirm-modal-title" class="text-lg font-bold text-white mb-4">Confirm Action</h3>
-            <p id="confirm-modal-body" class="text-gray-300 mb-6">Are you sure you want to proceed?</p>
-            <div class="flex gap-4">
-                <button id="confirm-modal-cancel-btn" class="w-full bg-gray-600 py-2 rounded-xl hover:bg-gray-500 transition">Cancel</button>
-                <button id="confirm-modal-confirm-btn" class="w-full bg-red-600 text-white font-semibold py-2 rounded-xl hover:bg-red-700 transition">Confirm</button>
-            </div>
-        </div>
-    </div>
-
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, doc, deleteDoc, updateDoc, deleteField, setDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // --- USER'S FIREBASE CONFIGURATION ---
-        const firebaseConfig = {
-          apiKey: "AIzaSyBQE9DZBL3ugPDWBVKj8piCVT7q-X9p0to",
-          authDomain: "expense-manager-2158b.firebaseapp.com",
-          projectId: "expense-manager-2158b",
-          storageBucket: "expense-manager-2158b.appspot.com",
-          messagingSenderId: "596327333035",
-          appId: "1:596327333035:web:e2ec1998729a81e7258bee",
-          measurementId: "G-QXTERJV3V8"
-        };
-        const appId = "expense-manager-2158b";
-        // --- End Configuration ---
-        
-        let db, auth, userId;
-        let peopleMap = {}, spendingChart, earningsChart;
-        let currentMode = 'personal';
-        let allTransactions = [];
-        let unsubscribeTransactions = () => {}, unsubscribePeople = () => {}, unsubscribeSettings = () => {}, unsubscribeRecurring = () => {};
-
-        // DOM Elements
-        const globalLoader = document.getElementById('global-loader');
-        const authView = document.getElementById('auth-view');
-        const appView = document.getElementById('app-view');
-        const mainContainer = document.getElementById('app-view');
-        const summarySection = document.getElementById('summary-section');
-        const dailyTotalCard = document.getElementById('daily-total-card');
-        const monthlyTotalLabel = document.getElementById('monthly-total-label');
-        const receivableTotalLabel = document.getElementById('receivable-total-label');
-        const personalView = document.getElementById('personal-view');
-        const businessView = document.getElementById('business-view');
-        const upcomingList = document.getElementById('upcoming-list');
-        const collectedList = document.getElementById('collected-list');
-        const transactionForm = document.getElementById('transaction-form');
-        const descriptionFieldWrapper = document.getElementById('description-field-wrapper');
-        const typeFieldWrapper = document.getElementById('type-field-wrapper');
-        const descriptionInput = document.getElementById('description');
-        const amountInput = document.getElementById('amount');
-        const personInput = document.getElementById('person');
-        const personLabel = document.querySelector('label[for="person-selector"]');
-        const modalTitle = document.getElementById('modal-title');
-        const newPersonNameInput = document.getElementById('new-person-name');
-        const typeSelect = document.getElementById('type');
-        const transactionList = document.getElementById('transaction-list');
-        const dailyTotalEl = document.getElementById('daily-total');
-        const monthlyTotalEl = document.getElementById('monthly-total');
-        const receivableTotalEl = document.getElementById('receivable-total');
-        const loadingState = document.getElementById('loading-state');
-        const personSelector = document.getElementById('person-selector');
-        const selectedPersonNameEl = document.getElementById('selected-person-name');
-        const selectedPersonAvatar = document.getElementById('selected-person-avatar');
-        const selectedPersonAvatarPlaceholder = document.getElementById('selected-person-avatar-placeholder');
-        const personalModeBtn = document.getElementById('personal-mode-btn');
-        const businessModeBtn = document.getElementById('business-mode-btn');
-        const submitBtn = document.getElementById('submit-btn');
-        const searchInput = document.getElementById('search-input');
-        const exportCsvBtn = document.getElementById('export-csv-btn');
-        const peopleModal = document.getElementById('people-modal');
-        const closeModalBtn = document.getElementById('close-people-modal-btn');
-        const addPersonForm = document.getElementById('add-person-form');
-        const addPersonBtn = document.getElementById('add-person-btn');
-        const peopleListModal = document.getElementById('people-list-modal');
-        const budgetSection = document.getElementById('budget-section');
-        const setBudgetBtn = document.getElementById('set-budget-btn');
-        const budgetProgress = document.getElementById('budget-progress');
-        const budgetSummary = document.getElementById('budget-summary');
-        const budgetModal = document.getElementById('budget-modal');
-        const budgetForm = document.getElementById('budget-form');
-        const budgetAmountInput = document.getElementById('budget-amount');
-        const cancelBudgetBtn = document.getElementById('cancel-budget-btn');
-        const personalChartContainer = document.getElementById('personal-chart-container');
-        const businessChartContainer = document.getElementById('business-chart-container');
-        const spendingChartCanvas = document.getElementById('spending-chart').getContext('2d');
-        const earningsChartCanvas = document.getElementById('earnings-chart').getContext('2d');
-        const isRecurringCheckbox = document.getElementById('is-recurring-checkbox');
-        const recurringFieldsWrapper = document.getElementById('recurring-fields-wrapper');
-        const recurringOptionsWrapper = document.getElementById('recurring-options-wrapper');
-        const frequencySelect = document.getElementById('frequency');
-        const startDateInput = document.getElementById('start-date');
-        const manageRecurringBtn = document.getElementById('manage-recurring-btn');
-        const recurringModal = document.getElementById('recurring-modal');
-        const closeRecurringModalBtn = document.getElementById('close-recurring-modal-btn');
-        const recurringListModal = document.getElementById('recurring-list-modal');
-        const startDateFilter = document.getElementById('filter-start-date');
-        const endDateFilter = document.getElementById('filter-end-date');
-        const clientFilterWrapper = document.getElementById('client-filter-wrapper');
-        const clientFilterSelect = document.getElementById('client-filter-select');
-        const getSummaryBtn = document.getElementById('get-summary-btn');
-        const geminiModal = document.getElementById('gemini-modal');
-        const geminiModalTitle = document.getElementById('gemini-modal-title');
-        const geminiModalContent = document.getElementById('gemini-modal-content');
-        const geminiModalActions = document.getElementById('gemini-modal-actions');
-        const copyGeminiContentBtn = document.getElementById('copy-gemini-content-btn');
-        const closeGeminiModalBtn = document.getElementById('close-gemini-modal-btn');
-        const confirmModal = document.getElementById('confirm-modal');
-        const confirmModalBody = document.getElementById('confirm-modal-body');
-        const confirmModalConfirmBtn = document.getElementById('confirm-modal-confirm-btn');
-        const confirmModalCancelBtn = document.getElementById('confirm-modal-cancel-btn');
-        // Profile elements
-        const profileButton = document.getElementById('profile-button');
-        const profileAvatar = document.getElementById('profile-avatar');
-        const profileName = document.getElementById('profile-name');
-        const profileDropdown = document.getElementById('profile-dropdown');
-        // Auth elements
-        const googleSigninBtn = document.getElementById('google-signin-btn');
-        const googleSigninText = document.getElementById('google-signin-text');
-        const googleSigninLoader = document.getElementById('google-signin-loader');
-        const authErrorEl = document.getElementById('auth-error');
-        const signOutBtn = document.getElementById('sign-out-btn');
-
-        let app;
-        try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-        } catch(e) {
-            console.error("Firebase initialization failed:", e);
-            globalLoader.innerHTML = `<p class="text-red-500 p-4">Firebase initialization failed. Please check your configuration.</p>`
-        }
-        
-        // --- Authentication Initialization & State Handling ---
-
-        const initializeAuth = async () => {
-            try {
-                // First, check if we are returning from a Google sign-in redirect
-                await getRedirectResult(auth);
-
-                // Now, set up the listener that will react to all auth changes
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        // User is signed in
-                        userId = user.uid;
-
-                        // Update profile UI with Google account info
-                        profileName.textContent = user.displayName || 'User';
-                        profileAvatar.src = user.photoURL || `https://placehold.co/32x32/4A5568/E2E8F0?text=${getInitials(user.displayName || 'User')}`;
-                        
-                        // Show the main application view
-                        authView.classList.add('hidden');
-                        appView.classList.remove('hidden');
-                        document.body.classList.remove('items-center');
-
-                        // Load the user's data
-                        await checkAndProcessRecurringTransactions();
-                        switchMode(currentMode);
-                        initSpotlightEffect();
-                    } else {
-                        // User is not signed in
-                        userId = null;
-                        authView.classList.remove('hidden');
-                        appView.classList.add('hidden');
-                        document.body.classList.add('items-center');
-                        unsubscribeAll();
-                    }
-                    // Hide the main loader once the auth state is determined
-                    globalLoader.classList.add('hidden');
-                });
-
-            } catch (error) {
-                // This catch block handles errors specifically from getRedirectResult
-                console.error("Sign-in via redirect failed:", error);
-                authErrorEl.textContent = `Sign-in failed: ${error.message}. Please check console for details.`;
-                globalLoader.classList.add('hidden');
-                authView.classList.remove('hidden');
-            }
-        };
-        
-        // Start the authentication flow as soon as the app loads
-        initializeAuth();
-
-        // Attach click listener for the sign-in button
-        googleSigninBtn.addEventListener('click', () => {
-            authErrorEl.textContent = '';
-            googleSigninText.classList.add('hidden');
-            googleSigninLoader.classList.remove('hidden');
-            googleSigninBtn.disabled = true;
-            const provider = new GoogleAuthProvider();
-            signInWithRedirect(auth, provider);
-        });
-
-        signOutBtn.addEventListener('click', async () => {
-            await signOut(auth);
-        });
-        
-        // Profile Dropdown Logic
-        profileButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            profileDropdown.classList.toggle('hidden');
-        });
-
-        window.addEventListener('click', () => {
-            if (!profileDropdown.classList.contains('hidden')) {
-                profileDropdown.classList.add('hidden');
-            }
-        });
-        // --- END AUTHENTICATION LOGIC ---
-
-
-        function switchMode(newMode) {
-            currentMode = newMode;
-            
-            personalModeBtn.classList.toggle('bg-yellow-500', newMode === 'personal');
-            personalModeBtn.classList.toggle('text-black', newMode === 'personal');
-            businessModeBtn.classList.toggle('bg-yellow-500', newMode === 'business');
-            businessModeBtn.classList.toggle('text-black', newMode === 'business');
-
-            const isBusiness = newMode === 'business';
-            personalView.classList.toggle('hidden', isBusiness);
-            businessView.classList.toggle('hidden', !isBusiness);
-            descriptionFieldWrapper.classList.toggle('hidden', isBusiness);
-            descriptionInput.required = !isBusiness;
-            typeFieldWrapper.classList.toggle('hidden', isBusiness);
-            submitBtn.parentElement.classList.toggle('md:grid-cols-2', isBusiness);
-            submitBtn.parentElement.classList.toggle('md:grid-cols-4', !isBusiness);
-            submitBtn.classList.toggle('md:col-start-2', isBusiness);
-            submitBtn.classList.toggle('md:col-start-4', !isBusiness);
-            personLabel.textContent = isBusiness ? 'Client' : 'Person';
-            modalTitle.textContent = isBusiness ? 'Select or Add Client' : 'Select or Add Person';
-            addPersonBtn.textContent = isBusiness ? 'Add Client' : 'Add Person';
-            newPersonNameInput.placeholder = isBusiness ? "Add new client's name" : "Add new person's name";
-            summarySection.classList.toggle('sm:grid-cols-2', isBusiness);
-            summarySection.classList.toggle('sm:grid-cols-3', !isBusiness);
-            dailyTotalCard.classList.toggle('hidden', isBusiness);
-            monthlyTotalLabel.textContent = isBusiness ? "This Month's Earnings" : "This Month's Spending";
-            receivableTotalLabel.textContent = isBusiness ? "Pending Collection" : "Pending to Collect";
-            budgetSection.classList.toggle('hidden', isBusiness);
-            personalChartContainer.classList.toggle('hidden', isBusiness);
-            businessChartContainer.classList.toggle('hidden', !isBusiness);
-            recurringOptionsWrapper.classList.toggle('hidden', isBusiness);
-            clientFilterWrapper.classList.toggle('hidden', !isBusiness);
-
-            unsubscribeAll();
-            clearAllLists();
-            
-            listenForData();
-            resetForm();
-        }
-        
-        function unsubscribeAll() {
-            unsubscribeTransactions();
-            unsubscribePeople();
-            unsubscribeSettings();
-            unsubscribeRecurring();
-        }
-        
-        function clearAllLists() {
-             transactionList.innerHTML = '';
-             upcomingList.innerHTML = '';
-             collectedList.innerHTML = '';
-             peopleListModal.innerHTML = '';
-             recurringListModal.innerHTML = '';
-             loadingState.style.display = 'block';
-        }
-        
-        function listenForData() {
-            if (!userId) return;
-            listenForTransactions();
-            listenForPeople();
-            if(currentMode === 'personal') {
-                listenForRecurring();
-                listenForSettings();
-            }
-        }
-        
-        searchInput.addEventListener('input', applyFiltersAndRender);
-        startDateFilter.addEventListener('change', applyFiltersAndRender);
-        endDateFilter.addEventListener('change', applyFiltersAndRender);
-        clientFilterSelect.addEventListener('change', applyFiltersAndRender);
-        exportCsvBtn.addEventListener('click', exportToCSV);
-        personalModeBtn.addEventListener('click', () => switchMode('personal'));
-        businessModeBtn.addEventListener('click', () => switchMode('business'));
-        
-        // Modal Logic
-        const modals = [peopleModal, budgetModal, recurringModal, geminiModal, confirmModal];
-        const closeButtons = [closeModalBtn, cancelBudgetBtn, closeRecurringModalBtn, closeGeminiModalBtn, confirmModalCancelBtn];
-        setBudgetBtn.addEventListener('click', () => budgetModal.classList.remove('hidden'));
-        personSelector.addEventListener('click', () => peopleModal.classList.remove('hidden'));
-        manageRecurringBtn.addEventListener('click', () => recurringModal.classList.remove('hidden'));
-        
-        modals.forEach(modal => {
-            modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.add('hidden'); });
-        });
-        closeButtons.forEach(btn => {
-            if (btn) {
-                btn.addEventListener('click', () => btn.closest('.fixed').classList.add('hidden'));
-            }
-        });
-
-        // People Management
-        addPersonForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const newName = newPersonNameInput.value.trim();
-            if (newName) {
-                try {
-                    const initials = getInitials(newName);
-                    const photoURL = `https://placehold.co/64x64/4A5568/E2E8F0?text=${initials}`;
-                    await addDoc(collection(db, `artifacts/${appId}/users/${userId}/${currentMode}_people`), { name: newName, photoURL });
-                    addPersonForm.reset();
-                } catch (error) { console.error("Error adding person:", error); }
-            }
-        });
-
-        peopleListModal.addEventListener('click', (e) => {
-            const personDiv = e.target.closest('.person-select-trigger');
-            if (personDiv) {
-                const { name } = personDiv.dataset;
-                personInput.value = name;
-                selectedPersonNameEl.textContent = name;
-                personSelector.classList.remove('ring-2', 'ring-red-500');
-                
-                const initials = getInitials(name);
-                const photoURL = `https://placehold.co/64x64/4A5568/E2E8F0?text=${initials}`;
-                selectedPersonAvatar.src = photoURL;
-                selectedPersonAvatar.classList.remove('hidden');
-                selectedPersonAvatarPlaceholder.classList.add('hidden');
-                
-                peopleModal.classList.add('hidden');
-            }
-        });
-        
-        // Transaction Form Logic
-        transactionForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const isBusiness = currentMode === 'business';
-            const person = personInput.value.trim();
-            const amount = parseFloat(amountInput.value);
-            const description = isBusiness ? `Payment from ${person}` : descriptionInput.value.trim();
-            const type = isBusiness ? 'receivable' : typeSelect.value;
-            const isRecurring = isRecurringCheckbox.checked;
-
-            let isPersonMandatory = isBusiness || (currentMode === 'personal' && type === 'receivable');
-
-            if (isPersonMandatory && !person) {
-                personSelector.classList.add('ring-2', 'ring-red-500');
-                setTimeout(() => personSelector.classList.remove('ring-2', 'ring-red-500'), 2000);
-                return;
-            }
-
-            const isValid = !isNaN(amount) && amount > 0 && (isBusiness || description);
-
-            if (isValid) {
-                try {
-                    const personToSave = person || '';
-                    if (isRecurring && currentMode === 'personal') {
-                        const startDateValue = startDateInput.value ? new Date(startDateInput.value) : new Date();
-                        const newRecurringTx = { 
-                            description, amount, person: personToSave, type, 
-                            frequency: frequencySelect.value, 
-                            nextDueDate: startDateValue, 
-                            createdAt: serverTimestamp(),
-                            mode: 'personal'
-                        };
-                        await addDoc(collection(db, `artifacts/${appId}/users/${userId}/recurring_transactions`), newRecurringTx);
-                    } else {
-                        const newTx = { description, amount, person: personToSave, type, createdAt: serverTimestamp() };
-                        if (isBusiness) newTx.status = 'upcoming';
-                        await addDoc(collection(db, `artifacts/${appId}/users/${userId}/${currentMode}_transactions`), newTx);
-                    }
-                    resetForm();
-                } catch (error) { console.error("Error adding transaction: ", error); }
-            }
-        });
-
-
-        // Data Listeners
-        function listenForTransactions() {
-            unsubscribeTransactions = onSnapshot(query(collection(db, `artifacts/${appId}/users/${userId}/${currentMode}_transactions`)), (snapshot) => {
-                loadingState.style.display = 'none';
-                allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                applyFiltersAndRender();
-            }, (error) => console.error("Error fetching transactions: ", error));
-        }
-
-        function listenForPeople() {
-            const peopleColRef = collection(db, `artifacts/${appId}/users/${userId}/${currentMode}_people`);
-            unsubscribePeople = onSnapshot(query(peopleColRef), (snapshot) => {
-                peopleListModal.innerHTML = '';
-                clientFilterSelect.innerHTML = '<option value="">All Clients</option>';
-                const newPeopleMap = {};
-                 if (snapshot.empty) {
-                     peopleListModal.innerHTML = `<p class="text-center text-gray-400">No ${currentMode === 'business' ? 'clients' : 'people'} added yet.</p>`;
-                 } else {
-                     snapshot.forEach(docSnap => {
-                         const person = docSnap.data();
-                         newPeopleMap[person.name] = person.photoURL || null;
-                         
-                         const initials = getInitials(person.name);
-                         const photoSrc = `https://placehold.co/40x40/4A5568/E2E8F0?text=${initials}`;
-
-                         const personEl = document.createElement('div');
-                         personEl.className = 'person-item p-2 rounded-xl flex items-center justify-between';
-                         personEl.innerHTML = `<div class="flex items-center cursor-pointer flex-grow person-select-trigger" data-name="${person.name}" data-photo="${photoSrc}"><img src="${photoSrc}" class="w-10 h-10 rounded-full object-cover mr-3"><span class="font-medium">${person.name}</span></div>`;
-                         peopleListModal.appendChild(personEl);
-
-                         if(currentMode === 'business') {
-                             const option = document.createElement('option');
-                             option.value = person.name;
-                             option.textContent = person.name;
-                             clientFilterSelect.appendChild(option);
-                         }
-                     });
-                 }
-                peopleMap = newPeopleMap;
-            });
-        }
-        
-        function applyFiltersAndRender() {
-            let filtered = [...allTransactions];
-            
-            // Apply search term filter
-            const searchTerm = searchInput.value.toLowerCase();
-            if (searchTerm) {
-                filtered = filtered.filter(tx => 
-                    (tx.description && tx.description.toLowerCase().includes(searchTerm)) || 
-                    (tx.person && tx.person.toLowerCase().includes(searchTerm))
-                );
-            }
-            
-            // Apply client filter in business mode
-            if (currentMode === 'business') {
-                const selectedClient = clientFilterSelect.value;
-                if (selectedClient) {
-                    filtered = filtered.filter(tx => tx.person === selectedClient);
-                }
-            }
-
-            // Apply date filters
-            const startDateValue = startDateFilter.value;
-            const endDateValue = endDateFilter.value;
-
-            if (startDateValue) {
-                const startDate = new Date(startDateValue);
-                startDate.setHours(0, 0, 0, 0); // Start of the day
-                filtered = filtered.filter(tx => tx.createdAt && tx.createdAt.toDate() >= startDate);
-            }
-
-            if (endDateValue) {
-                const endDate = new Date(endDateValue);
-                endDate.setHours(23, 59, 59, 999); // End of the day
-                filtered = filtered.filter(tx => tx.createdAt && tx.createdAt.toDate() <= endDate);
-            }
-
-
-            filtered.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-            updateUI(filtered);
-        }
-        
-        function updateUI(transactions) {
-            const formatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' });
-            const now = new Date();
-            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-
-            if (currentMode === 'business') {
-                renderBusinessUI(transactions, formatter, startOfMonth);
-            } else {
-                renderPersonalUI(transactions, formatter, startOfDay, startOfMonth);
-            }
-        }
-        
-        // UI Rendering
-        function renderPersonalUI(transactions, formatter, startOfDay, startOfMonth) {
-            transactionList.innerHTML = '';
-            let dailyTotal = 0, monthlyTotal = 0, receivableTotal = 0;
-            const expenseCategories = {};
-
-            if (transactions.length === 0) {
-                transactionList.innerHTML = `<p class="text-gray-400 text-center py-4">No transactions found.</p>`;
-            } else {
-                transactions.forEach(tx => {
-                    if (!tx.createdAt) return;
-                    const txType = tx.type || 'expense';
-
-                    if (txType === 'expense' && tx.createdAt.toMillis() >= startOfMonth) {
-                        monthlyTotal += tx.amount;
-                        if (tx.createdAt.toMillis() >= startOfDay) dailyTotal += tx.amount;
-                        const category = tx.description.split(' ')[0];
-                        expenseCategories[category] = (expenseCategories[category] || 0) + tx.amount;
-                    } else if (txType === 'receivable') {
-                        receivableTotal += tx.amount;
-                    }
-                    transactionList.appendChild(createTransactionElement(tx, 'personal'));
-                });
-            }
-            dailyTotalEl.textContent = formatter.format(dailyTotal);
-            monthlyTotalEl.textContent = formatter.format(monthlyTotal);
-            receivableTotalEl.textContent = formatter.format(receivableTotal);
-            updateBudgetUI(monthlyTotal, formatter);
-            updateSpendingChart(expenseCategories);
-        }
-
-        function renderBusinessUI(transactions, formatter, startOfMonth) {
-            upcomingList.innerHTML = '';
-            collectedList.innerHTML = '';
-            let pendingCollection = 0, monthlyEarnings = 0;
-            const clientEarnings = {};
-
-            const upcoming = transactions.filter(tx => tx.status === 'upcoming');
-            const collected = transactions.filter(tx => tx.status === 'collected');
-            
-            upcoming.forEach(tx => {
-                pendingCollection += tx.amount;
-                upcomingList.appendChild(createTransactionElement(tx, 'business-upcoming'));
-            });
-
-            collected.forEach(tx => {
-                if(tx.collectedAt && tx.collectedAt.toMillis() >= startOfMonth) {
-                    monthlyEarnings += tx.amount;
-                    clientEarnings[tx.person] = (clientEarnings[tx.person] || 0) + tx.amount;
-                }
-                collectedList.appendChild(createTransactionElement(tx, 'business-collected'));
-            });
-            
-            if (upcoming.length === 0) upcomingList.innerHTML = `<p class="text-gray-400 text-center py-4">No upcoming payments.</p>`;
-            if (collected.length === 0) collectedList.innerHTML = `<p class="text-gray-400 text-center py-4">No collected payments yet.</p>`;
-            
-            monthlyTotalEl.textContent = formatter.format(monthlyEarnings);
-            receivableTotalEl.textContent = formatter.format(pendingCollection);
-            updateEarningsChart(clientEarnings);
-        }
-        
-        function createTransactionElement(tx, type) {
-            const item = document.createElement('div');
-            const txDate = tx.createdAt ? tx.createdAt.toDate() : new Date();
-            const initials = getInitials(tx.person || tx.description || '');
-            const placeholderUrl = `https://placehold.co/40x40/4A5568/E2E8F0?text=${initials || '??'}`;
-            const personPhotoURL = (tx.person && peopleMap[tx.person]) ? peopleMap[tx.person] : placeholderUrl;
-            
-            const isExpense = tx.type === 'expense';
-            let borderColor = isExpense ? 'border-red-500' : 'border-green-500';
-            if (type === 'business-upcoming') borderColor = 'border-yellow-500';
-
-            item.className = `transaction-item flex items-center bg-gray-700 p-3 rounded-xl border-l-4 ${borderColor} transition duration-300`;
-            
-            let actionButtonsHTML = `<button data-id="${tx.id}" class="delete-btn ml-4 text-gray-500 hover:text-red-500"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`;
-            
-            if (type === 'business-upcoming') {
-                actionButtonsHTML = `<button data-person="${tx.person}" data-amount="${tx.amount}" class="draft-reminder-btn ml-2 text-blue-400 hover:text-blue-300" title="Draft Reminder">✨</button><button data-id="${tx.id}" class="collect-btn ml-2 text-green-400 hover:text-green-300" title="Mark as collected"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></button><button data-id="${tx.id}" class="delete-btn ml-2 text-gray-500 hover:text-red-500" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`;
-            } else if (type === 'business-collected') {
-                 actionButtonsHTML = `<button data-id="${tx.id}" class="revert-btn ml-4 text-yellow-400 hover:text-yellow-300" title="Move to upcoming"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg></button>`;
-            }
-            const personLabelText = currentMode === 'business' ? 'From:' : 'To/From:';
-            const dateString = tx.status === 'collected' && tx.collectedAt ? `Collected: ${tx.collectedAt.toDate().toLocaleDateString('en-IN')}` : txDate.toLocaleString('en-IN', { day: 'numeric', month: 'short'});
-            item.innerHTML = `<div class="mr-3"><img src="${personPhotoURL}" class="w-10 h-10 rounded-full object-cover"></div><div class="flex-grow"><p class="font-semibold text-gray-100">${tx.description}</p>${tx.person ? `<p class="text-xs text-gray-400">${personLabelText} ${tx.person}</p>` : ''}<p class="text-xs text-gray-500">${dateString}</p></div><div class="text-right"><p class="font-bold text-lg ${isExpense ? 'text-red-500' : 'text-green-500'}">${isExpense ? '-' : '+'}₹${tx.amount.toFixed(2)}</p></div><div class="flex items-center">${actionButtonsHTML}</div>`;
-            return item;
-        }
-        
-        // Event Handlers for dynamic lists
-        personalView.addEventListener('click', e => { if (e.target.closest('.delete-btn')) deleteTransaction(e.target.closest('.delete-btn').dataset.id); });
-        businessView.addEventListener('click', e => {
-            const collectBtn = e.target.closest('.collect-btn');
-            const revertBtn = e.target.closest('.revert-btn');
-            const deleteBtn = e.target.closest('.delete-btn');
-            const draftBtn = e.target.closest('.draft-reminder-btn');
-            if (collectBtn) updateBusinessTransactionStatus(collectBtn.dataset.id, 'collected');
-            if (revertBtn) updateBusinessTransactionStatus(revertBtn.dataset.id, 'upcoming');
-            if (deleteBtn) deleteTransaction(deleteBtn.dataset.id);
-            if (draftBtn) handleDraftReminder(draftBtn.dataset.person, draftBtn.dataset.amount);
-        });
-        
-        async function deleteTransaction(docId) {
-             try { await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/${currentMode}_transactions`, docId)); } 
-             catch (error) { console.error("Error deleting transaction: ", error); }
-        }
-        async function updateBusinessTransactionStatus(docId, status) {
-            try {
-                const updateData = { status };
-                if (status === 'collected') updateData.collectedAt = serverTimestamp();
-                else updateData.collectedAt = deleteField();
-                await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/business_transactions`, docId), updateData);
-            } catch (error) { console.error("Error updating transaction status: ", error); }
-        }
-
-        // Budget Feature
-        let monthlyBudget = 0;
-        budgetForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const newBudget = parseFloat(budgetAmountInput.value);
-            if (!isNaN(newBudget) && newBudget >= 0) {
-                try {
-                    await setDoc(doc(db, `artifacts/${appId}/users/${userId}/settings`, 'budget'), { amount: newBudget });
-                    budgetModal.classList.add('hidden');
-                } catch (error) { console.error("Error setting budget:", error); }
-            }
-        });
-        function listenForSettings() {
-            unsubscribeSettings = onSnapshot(doc(db, `artifacts/${appId}/users/${userId}/settings`, 'budget'), (docSnap) => {
-                if (docSnap.exists()) {
-                    monthlyBudget = docSnap.data().amount;
-                    budgetAmountInput.value = monthlyBudget;
-                } else { monthlyBudget = 0; }
-                applyFiltersAndRender();
-            });
-        }
-        function updateBudgetUI(currentSpending, formatter) {
-            const progress = monthlyBudget > 0 ? (currentSpending / monthlyBudget) * 100 : 0;
-            budgetProgress.style.width = `${Math.min(progress, 100)}%`;
-            budgetProgress.classList.toggle('bg-green-500', progress < 75);
-            budgetProgress.classList.toggle('bg-yellow-500', progress >= 75 && progress < 90);
-            budgetProgress.classList.toggle('bg-red-500', progress >= 90);
-            budgetSummary.textContent = `${formatter.format(currentSpending)} / ${formatter.format(monthlyBudget)}`;
-        }
-        
-        // Charts Feature
-        const chartOptions = { plugins: { legend: { labels: { color: '#d1d5db' }}}, scales: { y: { ticks: { color: '#9ca3af' }}, x: { ticks: { color: '#9ca3af' }}}};
-        function updateSpendingChart(data) {
-            const labels = Object.keys(data);
-            const values = Object.values(data);
-            if (spendingChart) { spendingChart.destroy(); }
-            spendingChart = new Chart(spendingChartCanvas, { type: 'pie', data: { labels, datasets: [{ label: 'Spending', data: values, backgroundColor: ['#FBBF24', '#F87171', '#60A5FA', '#34D399', '#A78BFA'] }] }, options: { plugins: { legend: { position: 'right', labels: { color: '#d1d5db' } } } } });
-        }
-        function updateEarningsChart(data) {
-            const labels = Object.keys(data);
-            const values = Object.values(data);
-            if(earningsChart) { earningsChart.destroy(); }
-            earningsChart = new Chart(earningsChartCanvas, { type: 'bar', data: { labels, datasets: [{ label: 'Monthly Earnings', data: values, backgroundColor: '#FBBF24' }] }, options: chartOptions });
-        }
-        
-        // Recurring Transactions Feature
-        isRecurringCheckbox.addEventListener('change', () => recurringFieldsWrapper.classList.toggle('hidden', !isRecurringCheckbox.checked));
-        function listenForRecurring() {
-            unsubscribeRecurring = onSnapshot(query(collection(db, `artifacts/${appId}/users/${userId}/recurring_transactions`)), (snapshot) => {
-                recurringListModal.innerHTML = '';
-                if(snapshot.empty) recurringListModal.innerHTML = `<p class="text-center text-gray-400">No recurring transactions set.</p>`;
-                snapshot.forEach(docSnap => {
-                    const tx = { id: docSnap.id, ...docSnap.data() };
-                    // Only show recurring transactions relevant to personal mode
-                    if (tx.mode === 'personal') {
-                        const item = document.createElement('div');
-                        item.className = 'flex items-center justify-between p-2 bg-gray-700 rounded-xl';
-                        item.innerHTML = `<div><p>${tx.description} - ₹${tx.amount} (personal)</p><p class="text-xs text-gray-400">Next on: ${tx.nextDueDate.toDate().toLocaleDateString()}</p></div><button data-id="${tx.id}" class="delete-recurring-btn text-red-500">Delete</button>`;
-                        recurringListModal.appendChild(item);
-                    }
-                });
-            });
-        }
-        
-        // Confirmation Modal Logic
-        function showConfirmationModal(message, onConfirmCallback) {
-            confirmModalBody.textContent = message;
-            confirmModal.classList.remove('hidden');
-
-            const confirmHandler = () => {
-                onConfirmCallback();
-                confirmModal.classList.add('hidden');
-                confirmModalConfirmBtn.removeEventListener('click', confirmHandler);
-            };
-
-            confirmModalConfirmBtn.addEventListener('click', confirmHandler, { once: true });
-        }
-
-        recurringListModal.addEventListener('click', async e => {
-            const deleteBtn = e.target.closest('.delete-recurring-btn');
-            if (deleteBtn) {
-                 const docIdToDelete = deleteBtn.dataset.id;
-                 showConfirmationModal('Are you sure you want to delete this recurring transaction?', async () => {
-                     await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/recurring_transactions`, docIdToDelete));
-                 });
-            }
-        });
-        
-        async function checkAndProcessRecurringTransactions() {
-            if (!userId) return;
-            const now = new Date();
-            const q = query(collection(db, `artifacts/${appId}/users/${userId}/recurring_transactions`));
-            const snapshot = await getDocs(q);
-            snapshot.forEach(async (docSnap) => {
-                const recurringTx = { id: docSnap.id, ...docSnap.data() };
-                const nextDueDate = recurringTx.nextDueDate.toDate();
-                if (nextDueDate <= now) {
-                    const { description, amount, person, type, mode } = recurringTx;
-                    if(mode === 'personal') { // Only process personal recurring tx
-                        const newTx = { description, amount, person, type, createdAt: serverTimestamp() };
-                        await addDoc(collection(db, `artifacts/${appId}/users/${userId}/personal_transactions`), newTx);
-                        
-                        let newNextDate = new Date(nextDueDate);
-                        if (recurringTx.frequency === 'daily') newNextDate.setDate(newNextDate.getDate() + 1);
-                        if (recurringTx.frequency === 'weekly') newNextDate.setDate(newNextDate.getDate() + 7);
-                        if (recurringTx.frequency === 'monthly') newNextDate.setMonth(newNextDate.getMonth() + 1);
-
-                        await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/recurring_transactions`, recurringTx.id), { nextDueDate: newNextDate });
-                    }
-                }
-            });
-        }
-
-        // CSV Export
-        function exportToCSV() {
-            const startDateValue = document.getElementById('filter-start-date').value;
-            const endDateValue = document.getElementById('filter-end-date').value;
-            const selectedClient = document.getElementById('client-filter-select').value;
-
-            let transactionsToExport = allTransactions;
-
-            if (currentMode === 'business' && selectedClient) {
-                 transactionsToExport = transactionsToExport.filter(tx => tx.person === selectedClient);
-            }
-
-            if (startDateValue) {
-                const startDate = new Date(startDateValue);
-                startDate.setHours(0, 0, 0, 0); 
-                transactionsToExport = transactionsToExport.filter(tx => tx.createdAt && tx.createdAt.toDate() >= startDate);
-            }
-
-            if (endDateValue) {
-                const endDate = new Date(endDateValue);
-                endDate.setHours(23, 59, 59, 999);
-                transactionsToExport = transactionsToExport.filter(tx => tx.createdAt && tx.createdAt.toDate() <= endDate);
-            }
-
-            const isBusiness = currentMode === 'business';
-            const headers = isBusiness
-                ? "Date,Description,Person,Amount,Type,Status"
-                : "Date,Description,Person,Amount,Type";
-
-            const rows = transactionsToExport.map(tx => {
-                let date = 'N/A';
-                if (tx.createdAt) {
-                    const d = tx.createdAt.toDate();
-                    date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                }
-                const description = `"${(tx.description || '').replace(/"/g, '""')}"`;
-                
-                const rowData = [`"${date}"`, description, tx.person || '', tx.amount, tx.type];
-
-                if (isBusiness) {
-                    rowData.push(tx.status || 'N/A');
-                }
-                
-                return rowData.join(',');
-            });
-
-            const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-
-            let filename = `${currentMode}_transactions.csv`;
-            if (startDateValue || endDateValue || (currentMode === 'business' && selectedClient)) {
-                filename = `${currentMode}_transactions_filtered.csv`;
-            }
-
-            link.setAttribute("download", filename);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        // --- Gemini API Features ---
-        function getInitials(name) {
-            if (!name) return '??';
-            const parts = name.split(' ').filter(Boolean);
-            if (parts.length === 0) return '??';
-            if (parts.length === 1) return parts[0][0].toUpperCase();
-            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        }
-
-        async function callGeminiAPI(prompt, retries = 3, delay = 1000) {
-            const apiKey = "";
-            const apiUrl = `https://generativelace.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-
-            const payload = { contents: [{ parts: [{ text: prompt }] }] };
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!response.ok) {
-                    throw new Error(`API call failed with status: ${response.status}`);
-                }
-                const result = await response.json();
-                return result.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
-            } catch (error) {
-                if (retries > 0) {
-                    await new Promise(res => setTimeout(res, delay));
-                    return callGeminiAPI(prompt, retries - 1, delay * 2);
-                }
-                console.error("Error calling Gemini API:", error);
-                return "An error occurred while contacting the AI assistant.";
-            }
-        }
-        
-        function showGeminiModal(title, showCopyButton = false) {
-            geminiModal.classList.remove('hidden');
-            geminiModalTitle.textContent = title;
-            geminiModalActions.classList.toggle('hidden', !showCopyButton);
-            geminiModalContent.innerHTML = `<div class="flex justify-center items-center h-32"><div class="loader"></div></div>`;
-        }
-        
-        getSummaryBtn.addEventListener('click', async () => {
-            showGeminiModal('✨ Smart Summary');
-            const recentTransactions = allTransactions
-                .slice(0, 20) // Use last 20 transactions
-                .map(tx => `${tx.type === 'expense' ? 'Spent' : 'Received'} ₹${tx.amount} on ${tx.description}`)
-                .join('\n');
-            
-            if (!recentTransactions) {
-                geminiModalContent.innerHTML = "<p>Not enough transaction data to generate a summary.</p>";
-                return;
-            }
-
-            const prompt = `You are a friendly financial assistant. Based on the following recent transactions, provide a brief, one-paragraph summary of my spending habits. Identify my top spending category and offer one simple, actionable tip to save money. Keep the tone encouraging and positive. Here are the transactions:\n${recentTransactions}`;
-            
-            const summary = await callGeminiAPI(prompt);
-            geminiModalContent.innerHTML = `<p>${summary.replace(/\n/g, '<br>')}</p>`;
-        });
-
-        async function handleDraftReminder(person, amount) {
-            showGeminiModal('✨ AI Draft Reminder', true);
-            const prompt = `You are a professional business assistant. Draft a polite and brief reminder message for a client about a pending payment. The client's name is ${person} and the pending amount is ₹${amount}. Keep the tone friendly but professional. Do not include a subject line.`;
-            
-            const reminder = await callGeminiAPI(prompt);
-            geminiModalContent.textContent = reminder;
-        }
-
-        copyGeminiContentBtn.addEventListener('click', () => {
-             const textToCopy = geminiModalContent.textContent;
-             const textArea = document.createElement("textarea");
-             textArea.value = textToCopy;
-             document.body.appendChild(textArea);
-             textArea.select();
-             try {
-                document.execCommand('copy');
-                copyGeminiContentBtn.textContent = "Copied!";
-             } catch (err) {
-                console.error('Failed to copy text: ', err);
-             }
-             document.body.removeChild(textArea);
-
-             setTimeout(() => { copyGeminiContentBtn.textContent = "Copy to Clipboard"; }, 2000);
-        });
-        
-        function resetForm() {
-            transactionForm.reset();
-            personInput.value = '';
-            selectedPersonNameEl.textContent = `Select a ${currentMode === 'business' ? 'client' : 'person'}`;
-            selectedPersonAvatar.classList.add('hidden');
-            selectedPersonAvatarPlaceholder.classList.remove('hidden');
-            recurringFieldsWrapper.classList.add('hidden');
-            isRecurringCheckbox.checked = false;
-        }
-        
-        // --- Spotlight Effect ---
-        function initSpotlightEffect() {
-            if (document.querySelector('.spotlight')) return; // Already initialized
-
-            const spotlight = document.createElement('div');
-            spotlight.className = 'spotlight';
-            document.body.appendChild(spotlight);
-            const spotlightRadius = 400;
-
-            const handleMouseMove = e => {
-                const mainRect = mainContainer.getBoundingClientRect();
-                const mouseInside = e.clientX >= mainRect.left && e.clientX <= mainRect.right && e.clientY >= mainRect.top && e.clientY <= mainRect.bottom;
-
-                if (!mouseInside) {
-                    gsap.to(spotlight, { opacity: 0, duration: 0.3, ease: 'power2.out' });
-                    document.querySelectorAll('.glow-card').forEach(card => card.style.setProperty('--glow-intensity', '0'));
-                    return;
-                }
-                
-                const proximity = spotlightRadius * 0.5;
-                const fadeDistance = spotlightRadius * 0.75;
-                let minDistance = Infinity;
-
-                document.querySelectorAll('.glow-card').forEach(card => {
-                    const cardRect = card.getBoundingClientRect();
-                    const centerX = cardRect.left + cardRect.width / 2;
-                    const centerY = cardRect.top + cardRect.height / 2;
-                    const distance = Math.hypot(e.clientX - centerX, e.clientY - centerY) - Math.max(cardRect.width, cardRect.height) / 2;
-                    const effectiveDistance = Math.max(0, distance);
-                    minDistance = Math.min(minDistance, effectiveDistance);
-                    
-                    let glowIntensity = 0;
-                    if (effectiveDistance <= proximity) glowIntensity = 1;
-                    else if (effectiveDistance <= fadeDistance) glowIntensity = (fadeDistance - proximity);
-                    
-                    const relativeX = ((e.clientX - cardRect.left) / cardRect.width) * 100;
-                    const relativeY = ((e.clientY - cardRect.top) / cardRect.height) * 100;
-                    card.style.setProperty('--glow-x', `${relativeX}%`);
-                    card.style.setProperty('--glow-y', `${relativeY}%`);
-                    card.style.setProperty('--glow-intensity', glowIntensity.toString());
-                });
-
-                gsap.to(spotlight, { left: e.clientX, top: e.clientY, duration: 0.1, ease: 'power2.out' });
-                
-                const targetOpacity = minDistance <= proximity ? 0.8 : minDistance <= fadeDistance ? ((fadeDistance - minDistance) / (fadeDistance - proximity)) * 0.8 : 0;
-                gsap.to(spotlight, { opacity: targetOpacity, duration: targetOpacity > 0 ? 0.2 : 0.5, ease: 'power2.out' });
-            };
-
-            const handleMouseLeave = () => {
-                gsap.to(spotlight, { opacity: 0, duration: 0.3, ease: 'power2.out' });
-                document.querySelectorAll('.glow-card').forEach(card => card.style.setProperty('--glow-intensity', '0'));
-            };
-
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseleave', handleMouseLeave);
-        }
-    </script>
+  </div>
+
+<script type="module">
+  // Popup-first Google sign-in with redirect fallback and verbose logging.
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
+    onAuthStateChanged,
+    signOut,
+    setPersistence,
+    browserLocalPersistence
+  } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+  // --- CONFIG: your firebaseConfig (keep as-is) ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyBQE9DZBL3ugPDWBVKj8piCVT7q-X9p0to",
+    authDomain: "expense-manager-2158b.firebaseapp.com",
+    projectId: "expense-manager-2158b",
+    storageBucket: "expense-manager-2158b.firebasestorage.app",
+    messagingSenderId: "596327333035",
+    appId: "1:596327333035:web:e2ec1998729a81e7258bee",
+    measurementId: "G-QXTERJV3V8"
+  };
+
+  // --- UI refs ---
+  const googleBtn = document.getElementById('google-btn');
+  const googleText = document.getElementById('google-text');
+  const btnLoader = document.getElementById('btn-loader');
+  const statusLine = document.getElementById('status-line');
+  const errorLine = document.getElementById('error-line');
+  const consoleLog = document.getElementById('console-log');
+  const originEl = document.getElementById('origin');
+  const manualIns = document.getElementById('manual-instructions');
+
+  function log(...args) {
+    console.log('[APP]', ...args);
+    consoleLog.textContent += args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ') + "\n";
+    consoleLog.scrollTop = consoleLog.scrollHeight;
+  }
+  function setStatus(txt) { statusLine.textContent = txt; log(txt); }
+  function setError(txt) { errorLine.textContent = txt; log('ERROR:', txt); }
+
+  originEl.textContent = location.origin;
+
+  // --- init firebase ---
+  let auth;
+  try {
+    const app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    // try to set persistence; not fatal if it fails
+    setPersistence(auth, browserLocalPersistence).catch(e => log('setPersistence warning', e));
+    log('Firebase initialized. authDomain:', firebaseConfig.authDomain);
+  } catch (e) {
+    setError('Firebase initialization failed. Check firebaseConfig. See console.');
+    log(e);
+    showManual();
+    throw e;
+  }
+
+  // show redirect result if any (helps debug redirect errors)
+  getRedirectResult(auth).then(result => {
+    if (result && result.user) {
+      setStatus(`Redirect sign-in succeeded: ${result.user.email || result.user.uid}`);
+    } else {
+      log('No redirect result (normal if no redirect).');
+    }
+  }).catch(err => {
+    setError('Redirect processing error: ' + (err.code || err.message || err));
+    log('getRedirectResult error', err);
+    showManual();
+  });
+
+  // keep UI reactive to auth state
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      setStatus(`Signed in as ${user.displayName || user.email || user.uid}`);
+      googleText.textContent = 'Signed in — reload to test';
+      btnLoader.classList.add('hidden');
+      googleBtn.disabled = true;
+      manualIns.classList.add('hidden');
+    } else {
+      setStatus('Not signed in');
+      googleText.textContent = 'Sign in with Google';
+      googleBtn.disabled = false;
+    }
+  });
+
+  // primary sign-in action: popup-first, redirect fallback
+  googleBtn.addEventListener('click', async () => {
+    btnLoader.classList.remove('hidden');
+    googleText.style.opacity = '0.6';
+    googleBtn.disabled = true;
+    setStatus('Attempting popup sign-in...');
+    errorLine.textContent = '';
+
+    const provider = new GoogleAuthProvider();
+
+    // helper to restore UI
+    function restoreUI() {
+      btnLoader.classList.add('hidden');
+      googleText.style.opacity = '1';
+      googleBtn.disabled = false;
+    }
+
+    try {
+      // Try popup first (less likely to fail if cookies allowed)
+      const res = await signInWithPopup(auth, provider);
+      setStatus('Popup sign-in successful: ' + (res.user.email || res.user.uid));
+      log('Popup result', res);
+      restoreUI();
+      return;
+    } catch (popupErr) {
+      log('Popup sign-in failed:', popupErr);
+      // If popup blocked by browser or other error, fallback to redirect
+      // Common reasons: popup blocked by browser, 3rd-party cookies blocked, browser extensions
+      const isPopupBlocked = popupErr && (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/cancelled-popup-request' || popupErr.name === 'FirebaseError');
+      setError('Popup sign-in failed. Trying redirect fallback. (See console for details.)');
+      setStatus('Popup failed — attempting redirect sign-in fallback...');
+
+      // small delay so user sees message
+      await new Promise(r => setTimeout(r, 600));
+
+      try {
+        await signInWithRedirect(auth, provider);
+        // redirect will navigate away — no further code will run here
+      } catch (redirectErr) {
+        restoreUI();
+        // If redirect fails, show precise instructions
+        log('signInWithRedirect failed:', redirectErr);
+        setError('Redirect sign-in also failed: ' + (redirectErr.code || redirectErr.message || redirectErr));
+        // Show manual instruction box explaining likely causes
+        showManual();
+      }
+    }
+  });
+
+  // convenience: sign-out by clicking the status area (for tests)
+  statusLine.addEventListener('click', async () => {
+    try {
+      await signOut(auth);
+      setStatus('Signed out');
+    } catch (e) {
+      log('signOut failed', e);
+      setError('Sign-out failed: ' + (e.message || e));
+    }
+  });
+
+  // show manual instructions area
+  function showManual() {
+    manualIns.classList.remove('hidden');
+  }
+
+  // Extra hints for the user
+  (function runHints() {
+    setTimeout(() => {
+      // If the button never opened a popup and nothing logged, likely issue: popup blocking or extensions
+      log('Hints: If sign-in still does not appear, try: (1) Incognito with extensions off, (2) Add ' + location.origin + ' to Firebase Authorized domains, (3) Allow popups for this site.');
+    }, 300);
+  })();
+
+</script>
 </body>
 </html>
-
