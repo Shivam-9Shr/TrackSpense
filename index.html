@@ -373,19 +373,25 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, doc, deleteDoc, updateDoc, deleteField, setDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyBQE9DZBL3ugPDWBVKj8piCVT7q-X9p0to",
-  authDomain: "expense-manager-2158b.firebaseapp.com",
-  projectId: "expense-manager-2158b",
-  storageBucket: "expense-manager-2158b.firebasestorage.app",
-  messagingSenderId: "596327333035",
-  appId: "1:596327333035:web:e2ec1998729a81e7258bee",
-  measurementId: "G-QXTERJV3V8"
-};
+        // --- AUTHENTICATION MODE SWITCH ---
+        // This is now set to TRUE to use real Google Authentication.
+        const USE_REAL_GOOGLE_AUTH = true; 
+
+        // --- USER'S FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyBQE9DZBL3ugPDWBVKj8piCVT7q-X9p0to",
+          authDomain: "expense-manager-2158b.firebaseapp.com",
+          projectId: "expense-manager-2158b",
+          storageBucket: "expense-manager-2158b.appspot.com",
+          messagingSenderId: "596327333035",
+          appId: "1:596327333035:web:e2ec1998729a81e7258bee",
+          measurementId: "G-QXTERJV3V8"
+        };
+        const appId = "expense-manager-2158b";
+        // --- End Configuration ---
         
         let db, auth, userId;
         let peopleMap = {}, spendingChart, earningsChart;
@@ -497,8 +503,6 @@ const firebaseConfig = {
         
         // --- Authentication Initialization & State Handling ---
         
-        // This is the single source of truth for UI state.
-        // It runs once on initial load, and again whenever the user signs in or out.
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 // User is signed in.
@@ -536,32 +540,54 @@ const firebaseConfig = {
             globalLoader.classList.add('hidden');
         });
 
-        // This block handles the redirect back from Google.
-        // It should run right away on page load.
-        getRedirectResult(auth)
-            .catch((error) => {
-                 console.error("Error processing redirect:", error);
-                 authErrorEl.textContent = `Error: ${error.code}. Please try again.`;
-                 // If there's an error with the redirect, we should still hide the loader
-                 // so the user can see the login page and the error message.
-                 globalLoader.classList.add('hidden');
-                 authView.classList.remove('hidden');
+        if (USE_REAL_GOOGLE_AUTH) {
+            // This block handles the redirect back from Google on your live website.
+            getRedirectResult(auth)
+                .catch((error) => {
+                    console.error("Error processing redirect:", error);
+                    authErrorEl.textContent = `Error: ${error.code}. Please try again.`;
+                    globalLoader.classList.add('hidden');
+                    authView.classList.remove('hidden');
+                });
+
+            googleSigninBtn.addEventListener('click', () => {
+                authErrorEl.textContent = '';
+                googleSigninText.classList.add('hidden');
+                googleSigninLoader.classList.remove('hidden');
+                googleSigninBtn.disabled = true;
+                const provider = new GoogleAuthProvider();
+                signInWithRedirect(auth, provider);
             });
+        } else {
+            // This block handles sign-in for the preview environment.
+            globalLoader.classList.add('hidden'); // Hide loader immediately for this mode
+            authView.classList.remove('hidden'); // Show login page
+            
+            googleSigninBtn.addEventListener('click', async () => {
+                authErrorEl.textContent = '';
+                googleSigninText.classList.add('hidden');
+                googleSigninLoader.classList.remove('hidden');
+                googleSigninBtn.disabled = true;
 
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Authentication failed:", error);
+                    authErrorEl.textContent = "Sign-in failed. Please try again.";
+                    googleSigninText.classList.remove('hidden');
+                    googleSigninLoader.classList.add('hidden');
+                    googleSigninBtn.disabled = false;
+                }
+            });
+        }
 
-        googleSigninBtn.addEventListener('click', () => {
-            authErrorEl.textContent = '';
-            googleSigninText.classList.add('hidden');
-            googleSigninLoader.classList.remove('hidden');
-            googleSigninBtn.disabled = true;
-            const provider = new GoogleAuthProvider();
-            // This will navigate away from the page to Google's sign-in.
-            signInWithRedirect(auth, provider);
-        });
 
         signOutBtn.addEventListener('click', async () => {
             await signOut(auth);
-            // onAuthStateChanged will handle hiding the app and showing the login page.
         });
         
         // Profile Dropdown Logic
