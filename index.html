@@ -17,8 +17,7 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         /* Custom scrollbar */
-        .custom-scrollbar::-webkit-scrollbar 
-        {
+        .custom-scrollbar::-webkit-scrollbar {
             width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
@@ -380,6 +379,7 @@
 
 
     <script type="module">
+      document.addEventListener('DOMContentLoaded', () => {
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, doc, deleteDoc, updateDoc, deleteField, setDoc, getDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -1338,6 +1338,7 @@
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseleave', handleMouseLeave);
         }
+      });
     </script>
 </body>
 </html>
