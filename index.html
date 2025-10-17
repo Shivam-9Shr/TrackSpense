@@ -102,7 +102,7 @@
     <!-- Global Loader -->
     <div id="global-loader" class="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-[100]">
         <div class="loader" style="width: 2.5rem; height: 2.5rem; border-width: 3px;"></div>
-        <p class="text-gray-400 mt-4">Loading Application...</p>
+        <p class="text-gray-400 mt-4">Authenticating...</p>
     </div>
 
     <!-- Auth View -->
@@ -373,13 +373,9 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, doc, deleteDoc, updateDoc, deleteField, setDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // --- AUTHENTICATION MODE SWITCH ---
-        // This is now set to TRUE to use real Google Authentication.
-        const USE_REAL_GOOGLE_AUTH = true; 
-
         // --- USER'S FIREBASE CONFIGURATION ---
         const firebaseConfig = {
           apiKey: "AIzaSyBQE9DZBL3ugPDWBVKj8piCVT7q-X9p0to",
@@ -495,96 +491,69 @@
             db = getFirestore(app);
             auth = getAuth(app);
         } catch(e) {
-            console.error("Firebase initialization failed. Please check your firebaseConfig object.", e);
-            authErrorEl.textContent = "Firebase configuration is missing or invalid. The app cannot start.";
-            globalLoader.classList.add('hidden');
-            authView.classList.remove('hidden');
+            console.error("Firebase initialization failed:", e);
+            globalLoader.innerHTML = `<p class="text-red-500 p-4">Firebase initialization failed. Please check your configuration.</p>`
         }
         
         // --- Authentication Initialization & State Handling ---
-        
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                // User is signed in.
-                userId = user.uid;
 
-                // Populate profile UI
-                profileName.textContent = user.displayName || 'User';
-                if (user.photoURL) {
-                    profileAvatar.src = user.photoURL;
-                } else {
-                    const initials = getInitials(user.displayName || 'User');
-                    profileAvatar.src = `https://placehold.co/32x32/4A5568/E2E8F0?text=${initials}`;
-                }
-                
-                // Show the main app and hide the login page
-                authView.classList.add('hidden');
-                appView.classList.remove('hidden');
-                document.body.classList.remove('items-center');
+        const initializeAuth = async () => {
+            try {
+                // First, check if we are returning from a Google sign-in redirect
+                await getRedirectResult(auth);
 
-                // Load all user data
-                await checkAndProcessRecurringTransactions();
-                switchMode(currentMode); // This will also trigger the data listeners
-                initSpotlightEffect();
+                // Now, set up the listener that will react to all auth changes
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        // User is signed in
+                        userId = user.uid;
 
-            } else {
-                // User is signed out.
-                userId = null;
-                // Show the login page
-                authView.classList.remove('hidden');
-                appView.classList.add('hidden');
-                document.body.classList.add('items-center');
-                unsubscribeAll();
-            }
-            // Once the auth state is known, hide the global loader.
-            globalLoader.classList.add('hidden');
-        });
+                        // Update profile UI with Google account info
+                        profileName.textContent = user.displayName || 'User';
+                        profileAvatar.src = user.photoURL || `https://placehold.co/32x32/4A5568/E2E8F0?text=${getInitials(user.displayName || 'User')}`;
+                        
+                        // Show the main application view
+                        authView.classList.add('hidden');
+                        appView.classList.remove('hidden');
+                        document.body.classList.remove('items-center');
 
-        if (USE_REAL_GOOGLE_AUTH) {
-            // This block handles the redirect back from Google on your live website.
-            getRedirectResult(auth)
-                .catch((error) => {
-                    console.error("Error processing redirect:", error);
-                    authErrorEl.textContent = `Error: ${error.code}. Please try again.`;
+                        // Load the user's data
+                        await checkAndProcessRecurringTransactions();
+                        switchMode(currentMode);
+                        initSpotlightEffect();
+                    } else {
+                        // User is not signed in
+                        userId = null;
+                        authView.classList.remove('hidden');
+                        appView.classList.add('hidden');
+                        document.body.classList.add('items-center');
+                        unsubscribeAll();
+                    }
+                    // Hide the main loader once the auth state is determined
                     globalLoader.classList.add('hidden');
-                    authView.classList.remove('hidden');
                 });
 
-            googleSigninBtn.addEventListener('click', () => {
-                authErrorEl.textContent = '';
-                googleSigninText.classList.add('hidden');
-                googleSigninLoader.classList.remove('hidden');
-                googleSigninBtn.disabled = true;
-                const provider = new GoogleAuthProvider();
-                signInWithRedirect(auth, provider);
-            });
-        } else {
-            // This block handles sign-in for the preview environment.
-            globalLoader.classList.add('hidden'); // Hide loader immediately for this mode
-            authView.classList.remove('hidden'); // Show login page
-            
-            googleSigninBtn.addEventListener('click', async () => {
-                authErrorEl.textContent = '';
-                googleSigninText.classList.add('hidden');
-                googleSigninLoader.classList.remove('hidden');
-                googleSigninBtn.disabled = true;
+            } catch (error) {
+                // This catch block handles errors specifically from getRedirectResult
+                console.error("Sign-in via redirect failed:", error);
+                authErrorEl.textContent = `Sign-in failed: ${error.message}. Please check console for details.`;
+                globalLoader.classList.add('hidden');
+                authView.classList.remove('hidden');
+            }
+        };
+        
+        // Start the authentication flow as soon as the app loads
+        initializeAuth();
 
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Authentication failed:", error);
-                    authErrorEl.textContent = "Sign-in failed. Please try again.";
-                    googleSigninText.classList.remove('hidden');
-                    googleSigninLoader.classList.add('hidden');
-                    googleSigninBtn.disabled = false;
-                }
-            });
-        }
-
+        // Attach click listener for the sign-in button
+        googleSigninBtn.addEventListener('click', () => {
+            authErrorEl.textContent = '';
+            googleSigninText.classList.add('hidden');
+            googleSigninLoader.classList.remove('hidden');
+            googleSigninBtn.disabled = true;
+            const provider = new GoogleAuthProvider();
+            signInWithRedirect(auth, provider);
+        });
 
         signOutBtn.addEventListener('click', async () => {
             await signOut(auth);
