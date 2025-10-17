@@ -1015,7 +1015,7 @@
                 snapshot.forEach(docSnap => {
                     const tx = { id: docSnap.id, ...docSnap.data() };
                     // Only show recurring transactions relevant to personal mode
-                    if (tx.mode === 'personal') {
+                    if (tx.mode === 'personal' && tx.nextDueDate && tx.nextDueDate.toDate) {
                         const item = document.createElement('div');
                         item.className = 'flex items-center justify-between p-2 bg-gray-700 rounded-xl';
                         item.innerHTML = `<div><p>${tx.description} - ₹${tx.amount} (personal)</p><p class="text-xs text-gray-400">Next on: ${tx.nextDueDate.toDate().toLocaleDateString()}</p></div><button data-id="${tx.id}" class="delete-recurring-btn text-red-500">Delete</button>`;
@@ -1340,5 +1340,4 @@
     </script>
 </body>
 </html>
-", a "clear" button was added to the profile dropdown menu but the logic to actually clear the data from the database was not implemented. Can you please add the necessary Firebase code to make this button functional? It should ask for confirmation before deleting all transactions, people, and settings for the currently active mode (Personal or Business).
 
