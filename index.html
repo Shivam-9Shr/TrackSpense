@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -99,8 +99,14 @@
 </head>
 <body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-4">
 
+    <!-- Global Loader -->
+    <div id="global-loader" class="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-[100]">
+        <div class="loader" style="width: 2.5rem; height: 2.5rem; border-width: 3px;"></div>
+        <p class="text-gray-400 mt-4">Loading Application...</p>
+    </div>
+
     <!-- Auth View -->
-    <div id="auth-view" class="w-full max-w-md mx-auto">
+    <div id="auth-view" class="w-full max-w-md mx-auto hidden">
         <div class="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
             <h1 class="text-3xl font-bold text-center text-white mb-2">Welcome!</h1>
             <p class="text-gray-400 text-center mb-8">Sign in with your Google account to securely access your transaction tracker.</p>
@@ -175,7 +181,7 @@
                         <div id="person-selector" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl flex items-center justify-between cursor-pointer hover:bg-gray-600 transition-all">
                            <div class="flex items-center">
                                 <div id="selected-person-avatar-container" class="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center mr-3 overflow-hidden">
-                                    <svg id="selected-person-avatar-placeholder" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-400"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4zM4 7h16M4 11h16M4 15h16M4 19h16" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                    <svg id="selected-person-avatar-placeholder" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-400"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                                     <img id="selected-person-avatar" src="" class="hidden w-full h-full object-cover">
                                 </div>
                                 <span id="selected-person-name" class="text-gray-400">Select a person</span>
@@ -367,10 +373,10 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, doc, deleteDoc, updateDoc, deleteField, setDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+       // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyBQE9DZBL3ugPDWBVKj8piCVT7q-X9p0to",
   authDomain: "expense-manager-2158b.firebaseapp.com",
@@ -380,9 +386,7 @@ const firebaseConfig = {
   appId: "1:596327333035:web:e2ec1998729a81e7258bee",
   measurementId: "G-QXTERJV3V8"
 };
-
-        const appId = firebaseConfig.appId;
-
+        
         let db, auth, userId;
         let peopleMap = {}, spendingChart, earningsChart;
         let currentMode = 'personal';
@@ -390,6 +394,7 @@ const firebaseConfig = {
         let unsubscribeTransactions = () => {}, unsubscribePeople = () => {}, unsubscribeSettings = () => {}, unsubscribeRecurring = () => {};
 
         // DOM Elements
+        const globalLoader = document.getElementById('global-loader');
         const authView = document.getElementById('auth-view');
         const appView = document.getElementById('app-view');
         const mainContainer = document.getElementById('app-view');
@@ -481,107 +486,82 @@ const firebaseConfig = {
         let app;
         try {
             app = initializeApp(firebaseConfig);
-            // ensure appId is available for Firestore paths (prevents ReferenceError)
-            const appOptions = app.options || {};
-            const inferredAppId = appOptions.appId || appOptions.projectId || firebaseConfig.appId || firebaseConfig.projectId;
-            window.appId = inferredAppId; // keep global for other code that references appId
             db = getFirestore(app);
             auth = getAuth(app);
-
-            // ensure auth state is persisted across redirects / reloads
-            try {
-                await setPersistence(auth, browserLocalPersistence);
-                console.log('Auth persistence set: browserLocalPersistence');
-            } catch (pErr) {
-                console.warn('Failed to set auth persistence:', pErr);
-            }
-
-            // Immediately read redirect result to surface any redirect errors (unauthorized-domain etc.)
-            getRedirectResult(auth).then((result) => {
-                console.log('getRedirectResult:', result);
-                if (result && result.user) {
-                    console.log('Redirect sign-in successful (getRedirectResult):', result.user);
-                    // onAuthStateChanged will handle UI show
-                }
-            }).catch((err) => {
-                console.error('getRedirectResult error:', err);
-                if (authErrorEl) {
-                    if (err && err.code === 'auth/unauthorized-domain') {
-                        authErrorEl.textContent = "This domain is not authorized for Google Sign-In. Add this origin in your Firebase project's Authorized domains.";
-                    } else {
-                        authErrorEl.textContent = err?.message || 'Authentication redirect failed.';
-                    }
-                }
-            });
-
         } catch(e) {
             console.error("Firebase initialization failed. Please check your firebaseConfig object.", e);
-            if (authErrorEl) authErrorEl.textContent = "Firebase configuration is missing or invalid. The app cannot start.";
+            authErrorEl.textContent = "Firebase configuration is missing or invalid. The app cannot start.";
+            globalLoader.classList.add('hidden');
+            authView.classList.remove('hidden');
         }
-
-        onAuthStateChanged(auth, async (user) => {
-            console.log('onAuthStateChanged fired. user:', user, 'auth.currentUser:', auth?.currentUser);
-            try {
-                if (user) {
-                    userId = user.uid;
-
-                    // Populate profile UI
-                    profileName.textContent = user.displayName || 'User';
-                    if (user.photoURL) {
-                        profileAvatar.src = user.photoURL;
-                    } else {
-                        const initials = getInitials(user.displayName || 'User');
-                        profileAvatar.src = `https://placehold.co/32x32/4A5568/E2E8F0?text=${initials}`;
-                    }
-
-                    authView.style.display = 'none';
-                    appView.style.display = 'block';
-                    document.body.classList.remove('items-center');
-                    await checkAndProcessRecurringTransactions();
-                    switchMode(currentMode);
-                    initSpotlightEffect();
-                } else {
-                    userId = null;
-                    authView.style.display = 'block';
-                    appView.style.display = 'none';
-                    document.body.classList.add('items-center');
-                    unsubscribeAll();
-
-                    // Handle the redirect result which can contain an error
-                    getRedirectResult(auth).catch((error) => {
-                        console.error("Error from redirect result:", error);
-                        if (error && error.code === 'auth/unauthorized-domain') {
-                             authErrorEl.textContent = "This domain is not authorized for Google Sign-In. Please add it to your Firebase project's settings.";
-                        } else if (error) {
-                            authErrorEl.textContent = error.message || JSON.stringify(error);
-                        }
-                    });
-                }
-            } catch (handlerErr) {
-                console.error('Error in onAuthStateChanged handler:', handlerErr);
-                // fallback to showing login if handler crashes
-                authView.style.display = 'block';
-                appView.style.display = 'none';
-            }
-        });
         
-        // --- AUTHENTICATION LOGIC ---
-        googleSigninBtn.addEventListener('click', async () => {
-            authErrorEl.textContent = '';
-            const provider = new GoogleAuthProvider();
-            try {
-                // ensure persistence is set right before redirect
-                try { await setPersistence(auth, browserLocalPersistence); } catch(e) { console.warn('setPersistence before redirect failed', e); }
-                console.log('Starting signInWithRedirect...');
-                signInWithRedirect(auth, provider);
-            } catch (err) {
-                console.error('signInWithRedirect failed:', err);
-                authErrorEl.textContent = err?.message || 'Failed to start sign-in.';
+        // --- Authentication Initialization & State Handling ---
+        
+        // This is the single source of truth for UI state.
+        // It runs once on initial load, and again whenever the user signs in or out.
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                // User is signed in.
+                userId = user.uid;
+
+                // Populate profile UI
+                profileName.textContent = user.displayName || 'User';
+                if (user.photoURL) {
+                    profileAvatar.src = user.photoURL;
+                } else {
+                    const initials = getInitials(user.displayName || 'User');
+                    profileAvatar.src = `https://placehold.co/32x32/4A5568/E2E8F0?text=${initials}`;
+                }
+                
+                // Show the main app and hide the login page
+                authView.classList.add('hidden');
+                appView.classList.remove('hidden');
+                document.body.classList.remove('items-center');
+
+                // Load all user data
+                await checkAndProcessRecurringTransactions();
+                switchMode(currentMode); // This will also trigger the data listeners
+                initSpotlightEffect();
+
+            } else {
+                // User is signed out.
+                userId = null;
+                // Show the login page
+                authView.classList.remove('hidden');
+                appView.classList.add('hidden');
+                document.body.classList.add('items-center');
+                unsubscribeAll();
             }
+            // Once the auth state is known, hide the global loader.
+            globalLoader.classList.add('hidden');
+        });
+
+        // This block handles the redirect back from Google.
+        // It should run right away on page load.
+        getRedirectResult(auth)
+            .catch((error) => {
+                 console.error("Error processing redirect:", error);
+                 authErrorEl.textContent = `Error: ${error.code}. Please try again.`;
+                 // If there's an error with the redirect, we should still hide the loader
+                 // so the user can see the login page and the error message.
+                 globalLoader.classList.add('hidden');
+                 authView.classList.remove('hidden');
+            });
+
+
+        googleSigninBtn.addEventListener('click', () => {
+            authErrorEl.textContent = '';
+            googleSigninText.classList.add('hidden');
+            googleSigninLoader.classList.remove('hidden');
+            googleSigninBtn.disabled = true;
+            const provider = new GoogleAuthProvider();
+            // This will navigate away from the page to Google's sign-in.
+            signInWithRedirect(auth, provider);
         });
 
         signOutBtn.addEventListener('click', async () => {
             await signOut(auth);
+            // onAuthStateChanged will handle hiding the app and showing the login page.
         });
         
         // Profile Dropdown Logic
@@ -1121,16 +1101,28 @@ const firebaseConfig = {
                     const d = tx.createdAt.toDate();
                     date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                 }
-                return isBusiness
-                    ? `${date},${tx.description},${tx.person},${tx.amount.toFixed(2)},${tx.type},${tx.status}`
-                    : `${date},${tx.description},${tx.person},${tx.amount.toFixed(2)},${tx.type}`;
+                const description = `"${(tx.description || '').replace(/"/g, '""')}"`;
+                
+                const rowData = [`"${date}"`, description, tx.person || '', tx.amount, tx.type];
+
+                if (isBusiness) {
+                    rowData.push(tx.status || 'N/A');
+                }
+                
+                return rowData.join(',');
             });
 
-            const csvContent = `data:text/csv;charset=utf-8,${headers}\n${rows.join('\n')}`;
+            const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
             const encodedUri = encodeURI(csvContent);
-            const link = document.createElement('a');
-            link.setAttribute('href', encodedUri);
-            link.setAttribute('download', `transactions_${new Date().toISOString().split('T')[0]}.csv`);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+
+            let filename = `${currentMode}_transactions.csv`;
+            if (startDateValue || endDateValue || (currentMode === 'business' && selectedClient)) {
+                filename = `${currentMode}_transactions_filtered.csv`;
+            }
+
+            link.setAttribute("download", filename);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -1265,7 +1257,7 @@ const firebaseConfig = {
                     
                     let glowIntensity = 0;
                     if (effectiveDistance <= proximity) glowIntensity = 1;
-                    else if (effectiveDistance <= fadeDistance) glowIntensity = (fadeDistance - effectiveDistance) / (fadeDistance - proximity);
+                    else if (effectiveDistance <= fadeDistance) glowIntensity = (fadeDistance - proximity);
                     
                     const relativeX = ((e.clientX - cardRect.left) / cardRect.width) * 100;
                     const relativeY = ((e.clientY - cardRect.top) / cardRect.height) * 100;
