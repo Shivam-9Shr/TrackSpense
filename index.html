@@ -381,7 +381,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, doc, deleteDoc, updateDoc, deleteField, setDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, doc, deleteDoc, updateDoc, deleteField, setDoc, getDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // --- USER'S FIREBASE CONFIGURATION ---
         const firebaseConfig = {
@@ -491,6 +491,7 @@
         const googleSigninLoader = document.getElementById('google-signin-loader');
         const authErrorEl = document.getElementById('auth-error');
         const signOutBtn = document.getElementById('sign-out-btn');
+        const clearDataBtn = document.getElementById('clear-data-btn');
 
         let app;
         try {
@@ -502,51 +503,60 @@
             globalLoader.innerHTML = `<p class="text-red-500 p-4">Firebase initialization failed. Please check your configuration.</p>`
         }
         
-        // --- Authentication Initialization & State Handling ---
+        // --- Authentication Initialization & State Handling (Robust Version) ---
+        
+        async function handleAuthentication() {
+            // This listener is our single source of truth for the user's login state.
+            // It will fire once initially, and then again any time the state changes.
+            const authUnsubscribe = onAuthStateChanged(auth, async (user) => {
+                console.log("Auth state changed. User:", user);
+                if (user) {
+                    // USER IS SIGNED IN
+                    userId = user.uid;
+                    profileName.textContent = user.displayName || 'User';
+                    profileAvatar.src = user.photoURL || `https://placehold.co/32x32/4A5568/E2E8F0?text=${getInitials(user.displayName || 'User')}`;
+                    
+                    authView.classList.add('hidden');
+                    appView.classList.remove('hidden');
+                    document.body.classList.remove('items-center');
 
-        // 1. Set up the primary listener immediately. This is the source of truth.
-        onAuthStateChanged(auth, async (user) => {
-            console.log("Auth state changed. User:", user); // Debugging log
-            if (user) {
-                // User is signed in.
-                userId = user.uid;
+                    await checkAndProcessRecurringTransactions();
+                    switchMode(currentMode);
+                    initSpotlightEffect();
+                } else {
+                    // USER IS SIGNED OUT
+                    userId = null;
+                    authView.classList.remove('hidden');
+                    appView.classList.add('hidden');
+                    document.body.classList.add('items-center');
+                    unsubscribeAll();
+                }
+                // Once we have a definitive answer (user or null), hide the loader.
+                globalLoader.classList.add('hidden');
+            });
 
-                // Update profile UI with Google account info
-                profileName.textContent = user.displayName || 'User';
-                profileAvatar.src = user.photoURL || `https://placehold.co/32x32/4A5568/E2E8F0?text=${getInitials(user.displayName || 'User')}`;
-                
-                // Show the main application view
-                authView.classList.add('hidden');
-                appView.classList.remove('hidden');
-                document.body.classList.remove('items-center');
-
-                // Load the user's data only after we know who the user is
-                await checkAndProcessRecurringTransactions();
-                switchMode(currentMode);
-                initSpotlightEffect();
-            } else {
-                // User is not signed in.
-                userId = null;
-                authView.classList.remove('hidden');
-                appView.classList.add('hidden');
-                document.body.classList.add('items-center');
-                unsubscribeAll();
+            try {
+                // Now, check if there's a sign-in result from a redirect.
+                // This process is now separate and won't block the listener.
+                // If it finds a user, it will trigger the onAuthStateChanged listener above.
+                console.log("Checking for redirect result...");
+                const result = await getRedirectResult(auth);
+                 if (result) {
+                    console.log("Redirect result successfully processed for user:", result.user.displayName);
+                 }
+            } catch (error) {
+                // If the redirect itself fails, we'll log it and show the error.
+                console.error("Error processing redirect result:", error);
+                authErrorEl.textContent = `Sign-in failed: ${error.message}`;
+                // The onAuthStateChanged listener will have already run with 'null' user,
+                // so the login page will be visible and the loader hidden.
             }
-            // Hide the main loader once the auth state is determined
-            globalLoader.classList.add('hidden');
-        });
+        }
 
-        // 2. Separately, process the potential redirect.
-        // This will trigger the onAuthStateChanged listener above if a user is found.
-        console.log("Processing redirect result..."); // Debugging log
-        getRedirectResult(auth).catch((error) => {
-            // Handle errors from the redirect, like if the user closes the popup.
-            console.error("Error processing redirect result:", error);
-            authErrorEl.textContent = `Sign-in failed: ${error.message}`;
-            // The listener will handle hiding the loader and showing the auth view
-        });
+        // Start the entire authentication process.
+        handleAuthentication();
 
-        // 3. The sign-in button just initiates the process.
+        // The sign-in button just initiates the redirect.
         googleSigninBtn.addEventListener('click', () => {
             authErrorEl.textContent = '';
             googleSigninText.classList.add('hidden');
@@ -610,7 +620,9 @@
             unsubscribeAll();
             clearAllLists();
             
-            listenForData();
+            if (userId) {
+                listenForData();
+            }
             resetForm();
         }
         
@@ -1023,8 +1035,14 @@
                 confirmModal.classList.add('hidden');
                 confirmModalConfirmBtn.removeEventListener('click', confirmHandler);
             };
+            
+            const cancelHandler = () => {
+                 confirmModal.classList.add('hidden');
+                 confirmModalCancelBtn.removeEventListener('click', cancelHandler);
+            }
 
             confirmModalConfirmBtn.addEventListener('click', confirmHandler, { once: true });
+            confirmModalCancelBtn.addEventListener('click', cancelHandler, { once: true });
         }
 
         recurringListModal.addEventListener('click', async e => {
@@ -1037,6 +1055,47 @@
             }
         });
         
+        // Clear Data Logic
+        async function deleteCollection(collectionPath) {
+            const q = query(collection(db, collectionPath));
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) return;
+            const batch = writeBatch(db);
+            snapshot.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+        }
+
+        clearDataBtn.addEventListener('click', () => {
+            showConfirmationModal(`Are you sure you want to delete all ${currentMode} data? This includes all transactions, people/clients, and settings for this mode. This action cannot be undone.`, async () => {
+                try {
+                    globalLoader.classList.remove('hidden');
+                    
+                    const transactionsPath = `artifacts/${appId}/users/${userId}/${currentMode}_transactions`;
+                    const peoplePath = `artifacts/${appId}/users/${userId}/${currentMode}_people`;
+                    
+                    await deleteCollection(transactionsPath);
+                    await deleteCollection(peoplePath);
+                    
+                    if (currentMode === 'personal') {
+                        const recurringPath = `artifacts/${appId}/users/${userId}/recurring_transactions`;
+                        await deleteCollection(recurringPath);
+                        await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/settings`, 'budget'));
+                    }
+                    
+                    console.log(`${currentMode} data cleared successfully.`);
+                    // The onSnapshot listeners will automatically update the UI to be empty.
+                } catch (error) {
+                    console.error("Error clearing data:", error);
+                    authErrorEl.textContent = "Error clearing data. Please try again.";
+                } finally {
+                    globalLoader.classList.add('hidden');
+                }
+            });
+        });
+
+
         async function checkAndProcessRecurringTransactions() {
             if (!userId) return;
             const now = new Date();
@@ -1044,19 +1103,21 @@
             const snapshot = await getDocs(q);
             snapshot.forEach(async (docSnap) => {
                 const recurringTx = { id: docSnap.id, ...docSnap.data() };
-                const nextDueDate = recurringTx.nextDueDate.toDate();
-                if (nextDueDate <= now) {
-                    const { description, amount, person, type, mode } = recurringTx;
-                    if(mode === 'personal') { // Only process personal recurring tx
-                        const newTx = { description, amount, person, type, createdAt: serverTimestamp() };
-                        await addDoc(collection(db, `artifacts/${appId}/users/${userId}/personal_transactions`), newTx);
-                        
-                        let newNextDate = new Date(nextDueDate);
-                        if (recurringTx.frequency === 'daily') newNextDate.setDate(newNextDate.getDate() + 1);
-                        if (recurringTx.frequency === 'weekly') newNextDate.setDate(newNextDate.getDate() + 7);
-                        if (recurringTx.frequency === 'monthly') newNextDate.setMonth(newNextDate.getMonth() + 1);
+                if (recurringTx.nextDueDate && recurringTx.nextDueDate.toDate) {
+                    const nextDueDate = recurringTx.nextDueDate.toDate();
+                    if (nextDueDate <= now) {
+                        const { description, amount, person, type, mode } = recurringTx;
+                        if(mode === 'personal') { // Only process personal recurring tx
+                            const newTx = { description, amount, person, type, createdAt: serverTimestamp() };
+                            await addDoc(collection(db, `artifacts/${appId}/users/${userId}/personal_transactions`), newTx);
+                            
+                            let newNextDate = new Date(nextDueDate);
+                            if (recurringTx.frequency === 'daily') newNextDate.setDate(newNextDate.getDate() + 1);
+                            if (recurringTx.frequency === 'weekly') newNextDate.setDate(newNextDate.getDate() + 7);
+                            if (recurringTx.frequency === 'monthly') newNextDate.setMonth(newNextDate.getMonth() + 1);
 
-                        await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/recurring_transactions`, recurringTx.id), { nextDueDate: newNextDate });
+                            await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/recurring_transactions`, recurringTx.id), { nextDueDate: newNextDate });
+                        }
                     }
                 }
             });
@@ -1279,4 +1340,5 @@
     </script>
 </body>
 </html>
+", a "clear" button was added to the profile dropdown menu but the logic to actually clear the data from the database was not implemented. Can you please add the necessary Firebase code to make this button functional? It should ask for confirmation before deleting all transactions, people, and settings for the currently active mode (Personal or Business).
 
