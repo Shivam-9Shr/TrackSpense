@@ -383,960 +383,962 @@
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, doc, deleteDoc, updateDoc, deleteField, setDoc, getDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // --- USER'S FIREBASE CONFIGURATION ---
-        const firebaseConfig = {
-          apiKey: "AIzaSyBQE9DZBL3ugPDWBVKj8piCVT7q-X9p0to",
-          authDomain: "expense-manager-2158b.firebaseapp.com",
-          projectId: "expense-manager-2158b",
-          storageBucket: "expense-manager-2158b.appspot.com",
-          messagingSenderId: "596327333035",
-          appId: "1:596327333035:web:e2ec1998729a81e7258bee",
-          measurementId: "G-QXTERJV3V8"
-        };
-        const appId = "expense-manager-2158b";
-        // --- End Configuration ---
-        
-        let db, auth, userId;
-        let peopleMap = {}, spendingChart, earningsChart;
-        let currentMode = 'personal';
-        let allTransactions = [];
-        let unsubscribeTransactions = () => {}, unsubscribePeople = () => {}, unsubscribeSettings = () => {}, unsubscribeRecurring = () => {};
-
-        // DOM Elements
-        const globalLoader = document.getElementById('global-loader');
-        const authView = document.getElementById('auth-view');
-        const appView = document.getElementById('app-view');
-        const mainContainer = document.getElementById('app-view');
-        const summarySection = document.getElementById('summary-section');
-        const dailyTotalCard = document.getElementById('daily-total-card');
-        const monthlyTotalLabel = document.getElementById('monthly-total-label');
-        const receivableTotalLabel = document.getElementById('receivable-total-label');
-        const personalView = document.getElementById('personal-view');
-        const businessView = document.getElementById('business-view');
-        const upcomingList = document.getElementById('upcoming-list');
-        const collectedList = document.getElementById('collected-list');
-        const transactionForm = document.getElementById('transaction-form');
-        const descriptionFieldWrapper = document.getElementById('description-field-wrapper');
-        const typeFieldWrapper = document.getElementById('type-field-wrapper');
-        const descriptionInput = document.getElementById('description');
-        const amountInput = document.getElementById('amount');
-        const personInput = document.getElementById('person');
-        const personLabel = document.querySelector('label[for="person-selector"]');
-        const modalTitle = document.getElementById('modal-title');
-        const newPersonNameInput = document.getElementById('new-person-name');
-        const typeSelect = document.getElementById('type');
-        const transactionList = document.getElementById('transaction-list');
-        const dailyTotalEl = document.getElementById('daily-total');
-        const monthlyTotalEl = document.getElementById('monthly-total');
-        const receivableTotalEl = document.getElementById('receivable-total');
-        const loadingState = document.getElementById('loading-state');
-        const personSelector = document.getElementById('person-selector');
-        const selectedPersonNameEl = document.getElementById('selected-person-name');
-        const selectedPersonAvatar = document.getElementById('selected-person-avatar');
-        const selectedPersonAvatarPlaceholder = document.getElementById('selected-person-avatar-placeholder');
-        const personalModeBtn = document.getElementById('personal-mode-btn');
-        const businessModeBtn = document.getElementById('business-mode-btn');
-        const submitBtn = document.getElementById('submit-btn');
-        const searchInput = document.getElementById('search-input');
-        const exportCsvBtn = document.getElementById('export-csv-btn');
-        const peopleModal = document.getElementById('people-modal');
-        const closeModalBtn = document.getElementById('close-people-modal-btn');
-        const addPersonForm = document.getElementById('add-person-form');
-        const addPersonBtn = document.getElementById('add-person-btn');
-        const peopleListModal = document.getElementById('people-list-modal');
-        const budgetSection = document.getElementById('budget-section');
-        const setBudgetBtn = document.getElementById('set-budget-btn');
-        const budgetProgress = document.getElementById('budget-progress');
-        const budgetSummary = document.getElementById('budget-summary');
-        const budgetModal = document.getElementById('budget-modal');
-        const budgetForm = document.getElementById('budget-form');
-        const budgetAmountInput = document.getElementById('budget-amount');
-        const cancelBudgetBtn = document.getElementById('cancel-budget-btn');
-        const personalChartContainer = document.getElementById('personal-chart-container');
-        const businessChartContainer = document.getElementById('business-chart-container');
-        const spendingChartCanvas = document.getElementById('spending-chart').getContext('2d');
-        const earningsChartCanvas = document.getElementById('earnings-chart').getContext('2d');
-        const isRecurringCheckbox = document.getElementById('is-recurring-checkbox');
-        const recurringFieldsWrapper = document.getElementById('recurring-fields-wrapper');
-        const recurringOptionsWrapper = document.getElementById('recurring-options-wrapper');
-        const frequencySelect = document.getElementById('frequency');
-        const startDateInput = document.getElementById('start-date');
-        const manageRecurringBtn = document.getElementById('manage-recurring-btn');
-        const recurringModal = document.getElementById('recurring-modal');
-        const closeRecurringModalBtn = document.getElementById('close-recurring-modal-btn');
-        const recurringListModal = document.getElementById('recurring-list-modal');
-        const startDateFilter = document.getElementById('filter-start-date');
-        const endDateFilter = document.getElementById('filter-end-date');
-        const clientFilterWrapper = document.getElementById('client-filter-wrapper');
-        const clientFilterSelect = document.getElementById('client-filter-select');
-        const getSummaryBtn = document.getElementById('get-summary-btn');
-        const geminiModal = document.getElementById('gemini-modal');
-        const geminiModalTitle = document.getElementById('gemini-modal-title');
-        const geminiModalContent = document.getElementById('gemini-modal-content');
-        const geminiModalActions = document.getElementById('gemini-modal-actions');
-        const copyGeminiContentBtn = document.getElementById('copy-gemini-content-btn');
-        const closeGeminiModalBtn = document.getElementById('close-gemini-modal-btn');
-        const confirmModal = document.getElementById('confirm-modal');
-        const confirmModalBody = document.getElementById('confirm-modal-body');
-        const confirmModalConfirmBtn = document.getElementById('confirm-modal-confirm-btn');
-        const confirmModalCancelBtn = document.getElementById('confirm-modal-cancel-btn');
-        // Profile elements
-        const profileButton = document.getElementById('profile-button');
-        const profileAvatar = document.getElementById('profile-avatar');
-        const profileName = document.getElementById('profile-name');
-        const profileDropdown = document.getElementById('profile-dropdown');
-        // Auth elements
-        const googleSigninBtn = document.getElementById('google-signin-btn');
-        const googleSigninText = document.getElementById('google-signin-text');
-        const googleSigninLoader = document.getElementById('google-signin-loader');
-        const authErrorEl = document.getElementById('auth-error');
-        const signOutBtn = document.getElementById('sign-out-btn');
-        const clearDataBtn = document.getElementById('clear-data-btn');
-
-        let app;
-        try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-        } catch(e) {
-            console.error("Firebase initialization failed:", e);
-            globalLoader.innerHTML = `<p class="text-red-500 p-4">Firebase initialization failed. Please check your configuration.</p>`
-        }
-        
-        // --- Authentication Initialization & State Handling (Robust Version) ---
-        
-        async function handleAuthentication() {
-            // This listener is our single source of truth for the user's login state.
-            // It will fire once initially, and then again any time the state changes.
-            onAuthStateChanged(auth, async (user) => {
-                console.log("Auth state changed. User:", user);
-                if (user) {
-                    // USER IS SIGNED IN
-                    userId = user.uid;
-                    profileName.textContent = user.displayName || 'User';
-                    profileAvatar.src = user.photoURL || `https://placehold.co/32x32/4A5568/E2E8F0?text=${getInitials(user.displayName || 'User')}`;
-                    
-                    authView.classList.add('hidden');
-                    appView.classList.remove('hidden');
-                    document.body.classList.remove('items-center');
-
-                    await checkAndProcessRecurringTransactions();
-                    switchMode(currentMode);
-                    initSpotlightEffect();
-                } else {
-                    // USER IS SIGNED OUT
-                    userId = null;
-                    authView.classList.remove('hidden');
-                    appView.classList.add('hidden');
-                    document.body.classList.add('items-center');
-                    unsubscribeAll();
-                }
-                // Once we have a definitive answer (user or null), hide the loader.
-                globalLoader.classList.add('hidden');
-            });
-
-            try {
-                // Now, check if there's a sign-in result from a redirect.
-                // This process is now separate and won't block the listener.
-                // If it finds a user, it will trigger the onAuthStateChanged listener above.
-                console.log("Checking for redirect result...");
-                const result = await getRedirectResult(auth);
-                 if (result) {
-                    console.log("Redirect result successfully processed for user:", result.user.displayName);
-                 }
-            } catch (error) {
-                // If the redirect itself fails, we'll log it and show the error.
-                console.error("Error processing redirect result:", error);
-                authErrorEl.textContent = `Sign-in failed: ${error.message}`;
-                // The onAuthStateChanged listener will have already run with 'null' user,
-                // so the login page will be visible and the loader hidden.
-            }
-        }
-
-        // Start the entire authentication process.
-        handleAuthentication();
-
-        // The sign-in button just initiates the redirect.
-        googleSigninBtn.addEventListener('click', () => {
-            authErrorEl.textContent = '';
-            googleSigninText.classList.add('hidden');
-            googleSigninLoader.classList.remove('hidden');
-            googleSigninBtn.disabled = true;
-            const provider = new GoogleAuthProvider();
-            signInWithRedirect(auth, provider);
-        });
-
-        signOutBtn.addEventListener('click', async () => {
-            await signOut(auth);
-        });
-        
-        // Profile Dropdown Logic
-        profileButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            profileDropdown.classList.toggle('hidden');
-        });
-
-        window.addEventListener('click', () => {
-            if (!profileDropdown.classList.contains('hidden')) {
-                profileDropdown.classList.add('hidden');
-            }
-        });
-        // --- END AUTHENTICATION LOGIC ---
-
-
-        function switchMode(newMode) {
-            currentMode = newMode;
-            
-            personalModeBtn.classList.toggle('bg-yellow-500', newMode === 'personal');
-            personalModeBtn.classList.toggle('text-black', newMode === 'personal');
-            businessModeBtn.classList.toggle('bg-yellow-500', newMode === 'business');
-            businessModeBtn.classList.toggle('text-black', newMode === 'business');
-
-            const isBusiness = newMode === 'business';
-            personalView.classList.toggle('hidden', isBusiness);
-            businessView.classList.toggle('hidden', !isBusiness);
-            descriptionFieldWrapper.classList.toggle('hidden', isBusiness);
-            descriptionInput.required = !isBusiness;
-            typeFieldWrapper.classList.toggle('hidden', isBusiness);
-            submitBtn.parentElement.classList.toggle('md:grid-cols-2', isBusiness);
-            submitBtn.parentElement.classList.toggle('md:grid-cols-4', !isBusiness);
-            submitBtn.classList.toggle('md:col-start-2', isBusiness);
-            submitBtn.classList.toggle('md:col-start-4', !isBusiness);
-            personLabel.textContent = isBusiness ? 'Client' : 'Person';
-            modalTitle.textContent = isBusiness ? 'Select or Add Client' : 'Select or Add Person';
-            addPersonBtn.textContent = isBusiness ? 'Add Client' : 'Add Person';
-            newPersonNameInput.placeholder = isBusiness ? "Add new client's name" : "Add new person's name";
-            summarySection.classList.toggle('sm:grid-cols-2', isBusiness);
-            summarySection.classList.toggle('sm:grid-cols-3', !isBusiness);
-            dailyTotalCard.classList.toggle('hidden', isBusiness);
-            monthlyTotalLabel.textContent = isBusiness ? "This Month's Earnings" : "This Month's Spending";
-            receivableTotalLabel.textContent = isBusiness ? "Pending Collection" : "Pending to Collect";
-            budgetSection.classList.toggle('hidden', isBusiness);
-            personalChartContainer.classList.toggle('hidden', isBusiness);
-            businessChartContainer.classList.toggle('hidden', !isBusiness);
-            recurringOptionsWrapper.classList.toggle('hidden', isBusiness);
-            clientFilterWrapper.classList.toggle('hidden', !isBusiness);
-
-            unsubscribeAll();
-            clearAllLists();
-            
-            if (userId) {
-                listenForData();
-            }
-            resetForm();
-        }
-        
-        function unsubscribeAll() {
-            unsubscribeTransactions();
-            unsubscribePeople();
-            unsubscribeSettings();
-            unsubscribeRecurring();
-        }
-        
-        function clearAllLists() {
-             transactionList.innerHTML = '';
-             upcomingList.innerHTML = '';
-             collectedList.innerHTML = '';
-             peopleListModal.innerHTML = '';
-             recurringListModal.innerHTML = '';
-             loadingState.style.display = 'block';
-        }
-        
-        function listenForData() {
-            if (!userId) return;
-            listenForTransactions();
-            listenForPeople();
-            if(currentMode === 'personal') {
-                listenForRecurring();
-                listenForSettings();
-            }
-        }
-        
-        searchInput.addEventListener('input', applyFiltersAndRender);
-        startDateFilter.addEventListener('change', applyFiltersAndRender);
-        endDateFilter.addEventListener('change', applyFiltersAndRender);
-        clientFilterSelect.addEventListener('change', applyFiltersAndRender);
-        exportCsvBtn.addEventListener('click', exportToCSV);
-        personalModeBtn.addEventListener('click', () => switchMode('personal'));
-        businessModeBtn.addEventListener('click', () => switchMode('business'));
-        
-        // Modal Logic
-        const modals = [peopleModal, budgetModal, recurringModal, geminiModal, confirmModal];
-        const closeButtons = [closeModalBtn, cancelBudgetBtn, closeRecurringModalBtn, closeGeminiModalBtn, confirmModalCancelBtn];
-        setBudgetBtn.addEventListener('click', () => budgetModal.classList.remove('hidden'));
-        personSelector.addEventListener('click', () => peopleModal.classList.remove('hidden'));
-        manageRecurringBtn.addEventListener('click', () => recurringModal.classList.remove('hidden'));
-        
-        modals.forEach(modal => {
-            modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.add('hidden'); });
-        });
-        closeButtons.forEach(btn => {
-            if (btn) {
-                btn.addEventListener('click', () => btn.closest('.fixed').classList.add('hidden'));
-            }
-        });
-
-        // People Management
-        addPersonForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const newName = newPersonNameInput.value.trim();
-            if (newName) {
-                try {
-                    const initials = getInitials(newName);
-                    const photoURL = `https://placehold.co/64x64/4A5568/E2E8F0?text=${initials}`;
-                    await addDoc(collection(db, `artifacts/${appId}/users/${userId}/${currentMode}_people`), { name: newName, photoURL });
-                    addPersonForm.reset();
-                } catch (error) { console.error("Error adding person:", error); }
-            }
-        });
-
-        peopleListModal.addEventListener('click', (e) => {
-            const personDiv = e.target.closest('.person-select-trigger');
-            if (personDiv) {
-                const { name } = personDiv.dataset;
-                personInput.value = name;
-                selectedPersonNameEl.textContent = name;
-                personSelector.classList.remove('ring-2', 'ring-red-500');
-                
-                const initials = getInitials(name);
-                const photoURL = `https://placehold.co/64x64/4A5568/E2E8F0?text=${initials}`;
-                selectedPersonAvatar.src = photoURL;
-                selectedPersonAvatar.classList.remove('hidden');
-                selectedPersonAvatarPlaceholder.classList.add('hidden');
-                
-                peopleModal.classList.add('hidden');
-            }
-        });
-        
-        // Transaction Form Logic
-        transactionForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const isBusiness = currentMode === 'business';
-            const person = personInput.value.trim();
-            const amount = parseFloat(amountInput.value);
-            const description = isBusiness ? `Payment from ${person}` : descriptionInput.value.trim();
-            const type = isBusiness ? 'receivable' : typeSelect.value;
-            const isRecurring = isRecurringCheckbox.checked;
-
-            let isPersonMandatory = isBusiness || (currentMode === 'personal' && type === 'receivable');
-
-            if (isPersonMandatory && !person) {
-                personSelector.classList.add('ring-2', 'ring-red-500');
-                setTimeout(() => personSelector.classList.remove('ring-2', 'ring-red-500'), 2000);
-                return;
-            }
-
-            const isValid = !isNaN(amount) && amount > 0 && (isBusiness || description);
-
-            if (isValid) {
-                try {
-                    const personToSave = person || '';
-                    if (isRecurring && currentMode === 'personal') {
-                        const startDateValue = startDateInput.value ? new Date(startDateInput.value) : new Date();
-                        const newRecurringTx = { 
-                            description, amount, person: personToSave, type, 
-                            frequency: frequencySelect.value, 
-                            nextDueDate: startDateValue, 
-                            createdAt: serverTimestamp(),
-                            mode: 'personal'
-                        };
-                        await addDoc(collection(db, `artifacts/${appId}/users/${userId}/recurring_transactions`), newRecurringTx);
-                    } else {
-                        const newTx = { description, amount, person: personToSave, type, createdAt: serverTimestamp() };
-                        if (isBusiness) newTx.status = 'upcoming';
-                        await addDoc(collection(db, `artifacts/${appId}/users/${userId}/${currentMode}_transactions`), newTx);
-                    }
-                    resetForm();
-                } catch (error) { console.error("Error adding transaction: ", error); }
-            }
-        });
-
-
-        // Data Listeners
-        function listenForTransactions() {
-            unsubscribeTransactions = onSnapshot(query(collection(db, `artifacts/${appId}/users/${userId}/${currentMode}_transactions`)), (snapshot) => {
-                loadingState.style.display = 'none';
-                allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                applyFiltersAndRender();
-            }, (error) => console.error("Error fetching transactions: ", error));
-        }
-
-        function listenForPeople() {
-            const peopleColRef = collection(db, `artifacts/${appId}/users/${userId}/${currentMode}_people`);
-            unsubscribePeople = onSnapshot(query(peopleColRef), (snapshot) => {
-                peopleListModal.innerHTML = '';
-                clientFilterSelect.innerHTML = '<option value="">All Clients</option>';
-                const newPeopleMap = {};
-                 if (snapshot.empty) {
-                     peopleListModal.innerHTML = `<p class="text-center text-gray-400">No ${currentMode === 'business' ? 'clients' : 'people'} added yet.</p>`;
-                 } else {
-                     snapshot.forEach(docSnap => {
-                         const person = docSnap.data();
-                         newPeopleMap[person.name] = person.photoURL || null;
-                         
-                         const initials = getInitials(person.name);
-                         const photoSrc = `https://placehold.co/40x40/4A5568/E2E8F0?text=${initials}`;
-
-                         const personEl = document.createElement('div');
-                         personEl.className = 'person-item p-2 rounded-xl flex items-center justify-between';
-                         personEl.innerHTML = `<div class="flex items-center cursor-pointer flex-grow person-select-trigger" data-name="${person.name}" data-photo="${photoSrc}"><img src="${photoSrc}" class="w-10 h-10 rounded-full object-cover mr-3"><span class="font-medium">${person.name}</span></div>`;
-                         peopleListModal.appendChild(personEl);
-
-                         if(currentMode === 'business') {
-                             const option = document.createElement('option');
-                             option.value = person.name;
-                             option.textContent = person.name;
-                             clientFilterSelect.appendChild(option);
-                         }
-                     });
-                 }
-                peopleMap = newPeopleMap;
-            });
-        }
-        
-        function applyFiltersAndRender() {
-            let filtered = [...allTransactions];
-            
-            // Apply search term filter
-            const searchTerm = searchInput.value.toLowerCase();
-            if (searchTerm) {
-                filtered = filtered.filter(tx => 
-                    (tx.description && tx.description.toLowerCase().includes(searchTerm)) || 
-                    (tx.person && tx.person.toLowerCase().includes(searchTerm))
-                );
-            }
-            
-            // Apply client filter in business mode
-            if (currentMode === 'business') {
-                const selectedClient = clientFilterSelect.value;
-                if (selectedClient) {
-                    filtered = filtered.filter(tx => tx.person === selectedClient);
-                }
-            }
-
-            // Apply date filters
-            const startDateValue = startDateFilter.value;
-            const endDateValue = endDateFilter.value;
-
-            if (startDateValue) {
-                const startDate = new Date(startDateValue);
-                startDate.setHours(0, 0, 0, 0); // Start of the day
-                filtered = filtered.filter(tx => tx.createdAt && tx.createdAt.toDate() >= startDate);
-            }
-
-            if (endDateValue) {
-                const endDate = new Date(endDateValue);
-                endDate.setHours(23, 59, 59, 999); // End of the day
-                filtered = filtered.filter(tx => tx.createdAt && tx.createdAt.toDate() <= endDate);
-            }
-
-
-            filtered.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-            updateUI(filtered);
-        }
-        
-        function updateUI(transactions) {
-            const formatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' });
-            const now = new Date();
-            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-
-            if (currentMode === 'business') {
-                renderBusinessUI(transactions, formatter, startOfMonth);
-            } else {
-                renderPersonalUI(transactions, formatter, startOfDay, startOfMonth);
-            }
-        }
-        
-        // UI Rendering
-        function renderPersonalUI(transactions, formatter, startOfDay, startOfMonth) {
-            transactionList.innerHTML = '';
-            let dailyTotal = 0, monthlyTotal = 0, receivableTotal = 0;
-            const expenseCategories = {};
-
-            if (transactions.length === 0) {
-                transactionList.innerHTML = `<p class="text-gray-400 text-center py-4">No transactions found.</p>`;
-            } else {
-                transactions.forEach(tx => {
-                    if (!tx.createdAt) return;
-                    const txType = tx.type || 'expense';
-
-                    if (txType === 'expense' && tx.createdAt.toMillis() >= startOfMonth) {
-                        monthlyTotal += tx.amount;
-                        if (tx.createdAt.toMillis() >= startOfDay) dailyTotal += tx.amount;
-                        const category = tx.description.split(' ')[0];
-                        expenseCategories[category] = (expenseCategories[category] || 0) + tx.amount;
-                    } else if (txType === 'receivable') {
-                        receivableTotal += tx.amount;
-                    }
-                    transactionList.appendChild(createTransactionElement(tx, 'personal'));
-                });
-            }
-            dailyTotalEl.textContent = formatter.format(dailyTotal);
-            monthlyTotalEl.textContent = formatter.format(monthlyTotal);
-            receivableTotalEl.textContent = formatter.format(receivableTotal);
-            updateBudgetUI(monthlyTotal, formatter);
-            updateSpendingChart(expenseCategories);
-        }
-
-        function renderBusinessUI(transactions, formatter, startOfMonth) {
-            upcomingList.innerHTML = '';
-            collectedList.innerHTML = '';
-            let pendingCollection = 0, monthlyEarnings = 0;
-            const clientEarnings = {};
-
-            const upcoming = transactions.filter(tx => tx.status === 'upcoming');
-            const collected = transactions.filter(tx => tx.status === 'collected');
-            
-            upcoming.forEach(tx => {
-                pendingCollection += tx.amount;
-                upcomingList.appendChild(createTransactionElement(tx, 'business-upcoming'));
-            });
-
-            collected.forEach(tx => {
-                if(tx.collectedAt && tx.collectedAt.toMillis() >= startOfMonth) {
-                    monthlyEarnings += tx.amount;
-                    clientEarnings[tx.person] = (clientEarnings[tx.person] || 0) + tx.amount;
-                }
-                collectedList.appendChild(createTransactionElement(tx, 'business-collected'));
-            });
-            
-            if (upcoming.length === 0) upcomingList.innerHTML = `<p class="text-gray-400 text-center py-4">No upcoming payments.</p>`;
-            if (collected.length === 0) collectedList.innerHTML = `<p class="text-gray-400 text-center py-4">No collected payments yet.</p>`;
-            
-            monthlyTotalEl.textContent = formatter.format(monthlyEarnings);
-            receivableTotalEl.textContent = formatter.format(pendingCollection);
-            updateEarningsChart(clientEarnings);
-        }
-        
-        function createTransactionElement(tx, type) {
-            const item = document.createElement('div');
-            const txDate = tx.createdAt ? tx.createdAt.toDate() : new Date();
-            const initials = getInitials(tx.person || tx.description || '');
-            const placeholderUrl = `https://placehold.co/40x40/4A5568/E2E8F0?text=${initials || '??'}`;
-            const personPhotoURL = (tx.person && peopleMap[tx.person]) ? peopleMap[tx.person] : placeholderUrl;
-            
-            const isExpense = tx.type === 'expense';
-            let borderColor = isExpense ? 'border-red-500' : 'border-green-500';
-            if (type === 'business-upcoming') borderColor = 'border-yellow-500';
-
-            item.className = `transaction-item flex items-center bg-gray-700 p-3 rounded-xl border-l-4 ${borderColor} transition duration-300`;
-            
-            let actionButtonsHTML = `<button data-id="${tx.id}" class="delete-btn ml-4 text-gray-500 hover:text-red-500"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`;
-            
-            if (type === 'business-upcoming') {
-                actionButtonsHTML = `<button data-person="${tx.person}" data-amount="${tx.amount}" class="draft-reminder-btn ml-2 text-blue-400 hover:text-blue-300" title="Draft Reminder">✨</button><button data-id="${tx.id}" class="collect-btn ml-2 text-green-400 hover:text-green-300" title="Mark as collected"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></button><button data-id="${tx.id}" class="delete-btn ml-2 text-gray-500 hover:text-red-500" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`;
-            } else if (type === 'business-collected') {
-                 actionButtonsHTML = `<button data-id="${tx.id}" class="revert-btn ml-4 text-yellow-400 hover:text-yellow-300" title="Move to upcoming"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg></button>`;
-            }
-            const personLabelText = currentMode === 'business' ? 'From:' : 'To/From:';
-            const dateString = tx.status === 'collected' && tx.collectedAt ? `Collected: ${tx.collectedAt.toDate().toLocaleDateString('en-IN')}` : txDate.toLocaleString('en-IN', { day: 'numeric', month: 'short'});
-            item.innerHTML = `<div class="mr-3"><img src="${personPhotoURL}" class="w-10 h-10 rounded-full object-cover"></div><div class="flex-grow"><p class="font-semibold text-gray-100">${tx.description}</p>${tx.person ? `<p class="text-xs text-gray-400">${personLabelText} ${tx.person}</p>` : ''}<p class="text-xs text-gray-500">${dateString}</p></div><div class="text-right"><p class="font-bold text-lg ${isExpense ? 'text-red-500' : 'text-green-500'}">${isExpense ? '-' : '+'}₹${tx.amount.toFixed(2)}</p></div><div class="flex items-center">${actionButtonsHTML}</div>`;
-            return item;
-        }
-        
-        // Event Handlers for dynamic lists
-        personalView.addEventListener('click', e => { if (e.target.closest('.delete-btn')) deleteTransaction(e.target.closest('.delete-btn').dataset.id); });
-        businessView.addEventListener('click', e => {
-            const collectBtn = e.target.closest('.collect-btn');
-            const revertBtn = e.target.closest('.revert-btn');
-            const deleteBtn = e.target.closest('.delete-btn');
-            const draftBtn = e.target.closest('.draft-reminder-btn');
-            if (collectBtn) updateBusinessTransactionStatus(collectBtn.dataset.id, 'collected');
-            if (revertBtn) updateBusinessTransactionStatus(revertBtn.dataset.id, 'upcoming');
-            if (deleteBtn) deleteTransaction(deleteBtn.dataset.id);
-            if (draftBtn) handleDraftReminder(draftBtn.dataset.person, draftBtn.dataset.amount);
-        });
-        
-        async function deleteTransaction(docId) {
-             try { await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/${currentMode}_transactions`, docId)); } 
-             catch (error) { console.error("Error deleting transaction: ", error); }
-        }
-        async function updateBusinessTransactionStatus(docId, status) {
-            try {
-                const updateData = { status };
-                if (status === 'collected') updateData.collectedAt = serverTimestamp();
-                else updateData.collectedAt = deleteField();
-                await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/business_transactions`, docId), updateData);
-            } catch (error) { console.error("Error updating transaction status: ", error); }
-        }
-
-        // Budget Feature
-        let monthlyBudget = 0;
-        budgetForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const newBudget = parseFloat(budgetAmountInput.value);
-            if (!isNaN(newBudget) && newBudget >= 0) {
-                try {
-                    await setDoc(doc(db, `artifacts/${appId}/users/${userId}/settings`, 'budget'), { amount: newBudget });
-                    budgetModal.classList.add('hidden');
-                } catch (error) { console.error("Error setting budget:", error); }
-            }
-        });
-        function listenForSettings() {
-            unsubscribeSettings = onSnapshot(doc(db, `artifacts/${appId}/users/${userId}/settings`, 'budget'), (docSnap) => {
-                if (docSnap.exists()) {
-                    monthlyBudget = docSnap.data().amount;
-                    budgetAmountInput.value = monthlyBudget;
-                } else { monthlyBudget = 0; }
-                applyFiltersAndRender();
-            });
-        }
-        function updateBudgetUI(currentSpending, formatter) {
-            const progress = monthlyBudget > 0 ? (currentSpending / monthlyBudget) * 100 : 0;
-            budgetProgress.style.width = `${Math.min(progress, 100)}%`;
-            budgetProgress.classList.toggle('bg-green-500', progress < 75);
-            budgetProgress.classList.toggle('bg-yellow-500', progress >= 75 && progress < 90);
-            budgetProgress.classList.toggle('bg-red-500', progress >= 90);
-            budgetSummary.textContent = `${formatter.format(currentSpending)} / ${formatter.format(monthlyBudget)}`;
-        }
-        
-        // Charts Feature
-        const chartOptions = { plugins: { legend: { labels: { color: '#d1d5db' }}}, scales: { y: { ticks: { color: '#9ca3af' }}, x: { ticks: { color: '#9ca3af' }}}};
-        function updateSpendingChart(data) {
-            const labels = Object.keys(data);
-            const values = Object.values(data);
-            if (spendingChart) { spendingChart.destroy(); }
-            spendingChart = new Chart(spendingChartCanvas, { type: 'pie', data: { labels, datasets: [{ label: 'Spending', data: values, backgroundColor: ['#FBBF24', '#F87171', '#60A5FA', '#34D399', '#A78BFA'] }] }, options: { plugins: { legend: { position: 'right', labels: { color: '#d1d5db' } } } } });
-        }
-        function updateEarningsChart(data) {
-            const labels = Object.keys(data);
-            const values = Object.values(data);
-            if(earningsChart) { earningsChart.destroy(); }
-            earningsChart = new Chart(earningsChartCanvas, { type: 'bar', data: { labels, datasets: [{ label: 'Monthly Earnings', data: values, backgroundColor: '#FBBF24' }] }, options: chartOptions });
-        }
-        
-        // Recurring Transactions Feature
-        isRecurringCheckbox.addEventListener('change', () => recurringFieldsWrapper.classList.toggle('hidden', !isRecurringCheckbox.checked));
-        function listenForRecurring() {
-            unsubscribeRecurring = onSnapshot(query(collection(db, `artifacts/${appId}/users/${userId}/recurring_transactions`)), (snapshot) => {
-                recurringListModal.innerHTML = '';
-                if(snapshot.empty) recurringListModal.innerHTML = `<p class="text-center text-gray-400">No recurring transactions set.</p>`;
-                snapshot.forEach(docSnap => {
-                    const tx = { id: docSnap.id, ...docSnap.data() };
-                    // Only show recurring transactions relevant to personal mode
-                    if (tx.mode === 'personal') {
-                        const item = document.createElement('div');
-                        item.className = 'flex items-center justify-between p-2 bg-gray-700 rounded-xl';
-                        item.innerHTML = `<div><p>${tx.description} - ₹${tx.amount} (personal)</p><p class="text-xs text-gray-400">Next on: ${tx.nextDueDate.toDate().toLocaleDateString()}</p></div><button data-id="${tx.id}" class="delete-recurring-btn text-red-500">Delete</button>`;
-                        recurringListModal.appendChild(item);
-                    }
-                });
-            });
-        }
-        
-        // Confirmation Modal Logic
-        function showConfirmationModal(message, onConfirmCallback) {
-            confirmModalBody.textContent = message;
-            confirmModal.classList.remove('hidden');
-
-            const confirmHandler = () => {
-                onConfirmCallback();
-                confirmModal.classList.add('hidden');
-                confirmModalConfirmBtn.removeEventListener('click', confirmHandler);
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- USER'S FIREBASE CONFIGURATION ---
+            const firebaseConfig = {
+              apiKey: "AIzaSyBQE9DZBL3ugPDWBVKj8piCVT7q-X9p0to",
+              authDomain: "expense-manager-2158b.firebaseapp.com",
+              projectId: "expense-manager-2158b",
+              storageBucket: "expense-manager-2158b.appspot.com",
+              messagingSenderId: "596327333035",
+              appId: "1:596327333035:web:e2ec1998729a81e7258bee",
+              measurementId: "G-QXTERJV3V8"
             };
+            const appId = "expense-manager-2158b";
+            // --- End Configuration ---
             
-            const cancelHandler = () => {
-                 confirmModal.classList.add('hidden');
-                 confirmModalCancelBtn.removeEventListener('click', cancelHandler);
-            }
+            let db, auth, userId;
+            let peopleMap = {}, spendingChart, earningsChart;
+            let currentMode = 'personal';
+            let allTransactions = [];
+            let unsubscribeTransactions = () => {}, unsubscribePeople = () => {}, unsubscribeSettings = () => {}, unsubscribeRecurring = () => {};
 
-            confirmModalConfirmBtn.addEventListener('click', confirmHandler, { once: true });
-            confirmModalCancelBtn.addEventListener('click', cancelHandler, { once: true });
-        }
+            // DOM Elements
+            const globalLoader = document.getElementById('global-loader');
+            const authView = document.getElementById('auth-view');
+            const appView = document.getElementById('app-view');
+            const mainContainer = document.getElementById('app-view');
+            const summarySection = document.getElementById('summary-section');
+            const dailyTotalCard = document.getElementById('daily-total-card');
+            const monthlyTotalLabel = document.getElementById('monthly-total-label');
+            const receivableTotalLabel = document.getElementById('receivable-total-label');
+            const personalView = document.getElementById('personal-view');
+            const businessView = document.getElementById('business-view');
+            const upcomingList = document.getElementById('upcoming-list');
+            const collectedList = document.getElementById('collected-list');
+            const transactionForm = document.getElementById('transaction-form');
+            const descriptionFieldWrapper = document.getElementById('description-field-wrapper');
+            const typeFieldWrapper = document.getElementById('type-field-wrapper');
+            const descriptionInput = document.getElementById('description');
+            const amountInput = document.getElementById('amount');
+            const personInput = document.getElementById('person');
+            const personLabel = document.querySelector('label[for="person-selector"]');
+            const modalTitle = document.getElementById('modal-title');
+            const newPersonNameInput = document.getElementById('new-person-name');
+            const typeSelect = document.getElementById('type');
+            const transactionList = document.getElementById('transaction-list');
+            const dailyTotalEl = document.getElementById('daily-total');
+            const monthlyTotalEl = document.getElementById('monthly-total');
+            const receivableTotalEl = document.getElementById('receivable-total');
+            const loadingState = document.getElementById('loading-state');
+            const personSelector = document.getElementById('person-selector');
+            const selectedPersonNameEl = document.getElementById('selected-person-name');
+            const selectedPersonAvatar = document.getElementById('selected-person-avatar');
+            const selectedPersonAvatarPlaceholder = document.getElementById('selected-person-avatar-placeholder');
+            const personalModeBtn = document.getElementById('personal-mode-btn');
+            const businessModeBtn = document.getElementById('business-mode-btn');
+            const submitBtn = document.getElementById('submit-btn');
+            const searchInput = document.getElementById('search-input');
+            const exportCsvBtn = document.getElementById('export-csv-btn');
+            const peopleModal = document.getElementById('people-modal');
+            const closeModalBtn = document.getElementById('close-people-modal-btn');
+            const addPersonForm = document.getElementById('add-person-form');
+            const addPersonBtn = document.getElementById('add-person-btn');
+            const peopleListModal = document.getElementById('people-list-modal');
+            const budgetSection = document.getElementById('budget-section');
+            const setBudgetBtn = document.getElementById('set-budget-btn');
+            const budgetProgress = document.getElementById('budget-progress');
+            const budgetSummary = document.getElementById('budget-summary');
+            const budgetModal = document.getElementById('budget-modal');
+            const budgetForm = document.getElementById('budget-form');
+            const budgetAmountInput = document.getElementById('budget-amount');
+            const cancelBudgetBtn = document.getElementById('cancel-budget-btn');
+            const personalChartContainer = document.getElementById('personal-chart-container');
+            const businessChartContainer = document.getElementById('business-chart-container');
+            const spendingChartCanvas = document.getElementById('spending-chart').getContext('2d');
+            const earningsChartCanvas = document.getElementById('earnings-chart').getContext('2d');
+            const isRecurringCheckbox = document.getElementById('is-recurring-checkbox');
+            const recurringFieldsWrapper = document.getElementById('recurring-fields-wrapper');
+            const recurringOptionsWrapper = document.getElementById('recurring-options-wrapper');
+            const frequencySelect = document.getElementById('frequency');
+            const startDateInput = document.getElementById('start-date');
+            const manageRecurringBtn = document.getElementById('manage-recurring-btn');
+            const recurringModal = document.getElementById('recurring-modal');
+            const closeRecurringModalBtn = document.getElementById('close-recurring-modal-btn');
+            const recurringListModal = document.getElementById('recurring-list-modal');
+            const startDateFilter = document.getElementById('filter-start-date');
+            const endDateFilter = document.getElementById('filter-end-date');
+            const clientFilterWrapper = document.getElementById('client-filter-wrapper');
+            const clientFilterSelect = document.getElementById('client-filter-select');
+            const getSummaryBtn = document.getElementById('get-summary-btn');
+            const geminiModal = document.getElementById('gemini-modal');
+            const geminiModalTitle = document.getElementById('gemini-modal-title');
+            const geminiModalContent = document.getElementById('gemini-modal-content');
+            const geminiModalActions = document.getElementById('gemini-modal-actions');
+            const copyGeminiContentBtn = document.getElementById('copy-gemini-content-btn');
+            const closeGeminiModalBtn = document.getElementById('close-gemini-modal-btn');
+            const confirmModal = document.getElementById('confirm-modal');
+            const confirmModalBody = document.getElementById('confirm-modal-body');
+            const confirmModalConfirmBtn = document.getElementById('confirm-modal-confirm-btn');
+            const confirmModalCancelBtn = document.getElementById('confirm-modal-cancel-btn');
+            // Profile elements
+            const profileButton = document.getElementById('profile-button');
+            const profileAvatar = document.getElementById('profile-avatar');
+            const profileName = document.getElementById('profile-name');
+            const profileDropdown = document.getElementById('profile-dropdown');
+            // Auth elements
+            const googleSigninBtn = document.getElementById('google-signin-btn');
+            const googleSigninText = document.getElementById('google-signin-text');
+            const googleSigninLoader = document.getElementById('google-signin-loader');
+            const authErrorEl = document.getElementById('auth-error');
+            const signOutBtn = document.getElementById('sign-out-btn');
+            const clearDataBtn = document.getElementById('clear-data-btn');
 
-        recurringListModal.addEventListener('click', async e => {
-            const deleteBtn = e.target.closest('.delete-recurring-btn');
-            if (deleteBtn) {
-                 const docIdToDelete = deleteBtn.dataset.id;
-                 showConfirmationModal('Are you sure you want to delete this recurring transaction?', async () => {
-                     await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/recurring_transactions`, docIdToDelete));
-                 });
-            }
-        });
-        
-        // Clear Data Logic
-        async function deleteCollection(collectionPath) {
-            const q = query(collection(db, collectionPath));
-            const snapshot = await getDocs(q);
-            if (snapshot.empty) return;
-            const batch = writeBatch(db);
-            snapshot.forEach(doc => {
-                batch.delete(doc.ref);
-            });
-            await batch.commit();
-        }
-
-        clearDataBtn.addEventListener('click', () => {
-            showConfirmationModal(`Are you sure you want to delete all ${currentMode} data? This includes all transactions, people/clients, and settings for this mode. This action cannot be undone.`, async () => {
-                try {
-                    globalLoader.classList.remove('hidden');
-                    
-                    const transactionsPath = `artifacts/${appId}/users/${userId}/${currentMode}_transactions`;
-                    const peoplePath = `artifacts/${appId}/users/${userId}/${currentMode}_people`;
-                    
-                    await deleteCollection(transactionsPath);
-                    await deleteCollection(peoplePath);
-                    
-                    if (currentMode === 'personal') {
-                        const recurringPath = `artifacts/${appId}/users/${userId}/recurring_transactions`;
-                        await deleteCollection(recurringPath);
-                        await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/settings`, 'budget'));
-                    }
-                    
-                    console.log(`${currentMode} data cleared successfully.`);
-                    // The onSnapshot listeners will automatically update the UI to be empty.
-                } catch (error) {
-                    console.error("Error clearing data:", error);
-                    authErrorEl.textContent = "Error clearing data. Please try again.";
-                } finally {
-                    globalLoader.classList.add('hidden');
-                }
-            });
-        });
-
-
-        async function checkAndProcessRecurringTransactions() {
-            if (!userId) return;
-            const now = new Date();
-            const q = query(collection(db, `artifacts/${appId}/users/${userId}/recurring_transactions`));
-            const snapshot = await getDocs(q);
-            snapshot.forEach(async (docSnap) => {
-                const recurringTx = { id: docSnap.id, ...docSnap.data() };
-                if (recurringTx.nextDueDate && recurringTx.nextDueDate.toDate) {
-                    const nextDueDate = recurringTx.nextDueDate.toDate();
-                    if (nextDueDate <= now) {
-                        const { description, amount, person, type, mode } = recurringTx;
-                        if(mode === 'personal') { // Only process personal recurring tx
-                            const newTx = { description, amount, person, type, createdAt: serverTimestamp() };
-                            await addDoc(collection(db, `artifacts/${appId}/users/${userId}/personal_transactions`), newTx);
-                            
-                            let newNextDate = new Date(nextDueDate);
-                            if (recurringTx.frequency === 'daily') newNextDate.setDate(newNextDate.getDate() + 1);
-                            if (recurringTx.frequency === 'weekly') newNextDate.setDate(newNextDate.getDate() + 7);
-                            if (recurringTx.frequency === 'monthly') newNextDate.setMonth(newNextDate.getMonth() + 1);
-
-                            await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/recurring_transactions`, recurringTx.id), { nextDueDate: newNextDate });
-                        }
-                    }
-                }
-            });
-        }
-
-        // CSV Export
-        function exportToCSV() {
-            const startDateValue = document.getElementById('filter-start-date').value;
-            const endDateValue = document.getElementById('filter-end-date').value;
-            const selectedClient = document.getElementById('client-filter-select').value;
-
-            let transactionsToExport = allTransactions;
-
-            if (currentMode === 'business' && selectedClient) {
-                 transactionsToExport = transactionsToExport.filter(tx => tx.person === selectedClient);
-            }
-
-            if (startDateValue) {
-                const startDate = new Date(startDateValue);
-                startDate.setHours(0, 0, 0, 0); 
-                transactionsToExport = transactionsToExport.filter(tx => tx.createdAt && tx.createdAt.toDate() >= startDate);
-            }
-
-            if (endDateValue) {
-                const endDate = new Date(endDateValue);
-                endDate.setHours(23, 59, 59, 999);
-                transactionsToExport = transactionsToExport.filter(tx => tx.createdAt && tx.createdAt.toDate() <= endDate);
-            }
-
-            const isBusiness = currentMode === 'business';
-            const headers = isBusiness
-                ? "Date,Description,Person,Amount,Type,Status"
-                : "Date,Description,Person,Amount,Type";
-
-            const rows = transactionsToExport.map(tx => {
-                let date = 'N/A';
-                if (tx.createdAt) {
-                    const d = tx.createdAt.toDate();
-                    date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                }
-                const description = `"${(tx.description || '').replace(/"/g, '""')}"`;
-                
-                const rowData = [`"${date}"`, description, tx.person || '', tx.amount, tx.type];
-
-                if (isBusiness) {
-                    rowData.push(tx.status || 'N/A');
-                }
-                
-                return rowData.join(',');
-            });
-
-            const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-
-            let filename = `${currentMode}_transactions.csv`;
-            if (startDateValue || endDateValue || (currentMode === 'business' && selectedClient)) {
-                filename = `${currentMode}_transactions_filtered.csv`;
-            }
-
-            link.setAttribute("download", filename);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        // --- Gemini API Features ---
-        function getInitials(name) {
-            if (!name) return '??';
-            const parts = name.split(' ').filter(Boolean);
-            if (parts.length === 0) return '??';
-            if (parts.length === 1) return parts[0][0].toUpperCase();
-            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        }
-
-        async function callGeminiAPI(prompt, retries = 3, delay = 1000) {
-            const apiKey = "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-
-            const payload = { contents: [{ parts: [{ text: prompt }] }] };
-
+            let app;
             try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+            } catch(e) {
+                console.error("Firebase initialization failed:", e);
+                globalLoader.innerHTML = `<p class="text-red-500 p-4">Firebase initialization failed. Please check your configuration.</p>`
+            }
+            
+            // --- Authentication Initialization & State Handling (Robust Version) ---
+            
+            async function handleAuthentication() {
+                // This listener is our single source of truth for the user's login state.
+                // It will fire once initially, and then again any time the state changes.
+                onAuthStateChanged(auth, async (user) => {
+                    console.log("Auth state changed. User:", user);
+                    if (user) {
+                        // USER IS SIGNED IN
+                        userId = user.uid;
+                        profileName.textContent = user.displayName || 'User';
+                        profileAvatar.src = user.photoURL || `https://placehold.co/32x32/4A5568/E2E8F0?text=${getInitials(user.displayName || 'User')}`;
+                        
+                        authView.classList.add('hidden');
+                        appView.classList.remove('hidden');
+                        document.body.classList.remove('items-center');
+
+                        await checkAndProcessRecurringTransactions();
+                        switchMode(currentMode);
+                        initSpotlightEffect();
+                    } else {
+                        // USER IS SIGNED OUT
+                        userId = null;
+                        authView.classList.remove('hidden');
+                        appView.classList.add('hidden');
+                        document.body.classList.add('items-center');
+                        unsubscribeAll();
+                    }
+                    // Once we have a definitive answer (user or null), hide the loader.
+                    globalLoader.classList.add('hidden');
                 });
-                if (!response.ok) {
-                    throw new Error(`API call failed with status: ${response.status}`);
+
+                try {
+                    // Now, check if there's a sign-in result from a redirect.
+                    // This process is now separate and won't block the listener.
+                    // If it finds a user, it will trigger the onAuthStateChanged listener above.
+                    console.log("Checking for redirect result...");
+                    const result = await getRedirectResult(auth);
+                     if (result) {
+                        console.log("Redirect result successfully processed for user:", result.user.displayName);
+                     }
+                } catch (error) {
+                    // If the redirect itself fails, we'll log it and show the error.
+                    console.error("Error processing redirect result:", error);
+                    authErrorEl.textContent = `Sign-in failed: ${error.message}`;
+                    // The onAuthStateChanged listener will have already run with 'null' user,
+                    // so the login page will be visible and the loader hidden.
                 }
-                const result = await response.json();
-                return result.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
-            } catch (error) {
-                if (retries > 0) {
-                    await new Promise(res => setTimeout(res, delay));
-                    return callGeminiAPI(prompt, retries - 1, delay * 2);
-                }
-                console.error("Error calling Gemini API:", error);
-                return "An error occurred while contacting the AI assistant.";
-            }
-        }
-        
-        function showGeminiModal(title, showCopyButton = false) {
-            geminiModal.classList.remove('hidden');
-            geminiModalTitle.textContent = title;
-            geminiModalActions.classList.toggle('hidden', !showCopyButton);
-            geminiModalContent.innerHTML = `<div class="flex justify-center items-center h-32"><div class="loader"></div></div>`;
-        }
-        
-        getSummaryBtn.addEventListener('click', async () => {
-            showGeminiModal('✨ Smart Summary');
-            const recentTransactions = allTransactions
-                .slice(0, 20) // Use last 20 transactions
-                .map(tx => `${tx.type === 'expense' ? 'Spent' : 'Received'} ₹${tx.amount} on ${tx.description}`)
-                .join('\n');
-            
-            if (!recentTransactions) {
-                geminiModalContent.innerHTML = "<p>Not enough transaction data to generate a summary.</p>";
-                return;
             }
 
-            const prompt = `You are a friendly financial assistant. Based on the following recent transactions, provide a brief, one-paragraph summary of my spending habits. Identify my top spending category and offer one simple, actionable tip to save money. Keep the tone encouraging and positive. Here are the transactions:\n${recentTransactions}`;
+            // Start the entire authentication process.
+            handleAuthentication();
+
+            // The sign-in button just initiates the redirect.
+            googleSigninBtn.addEventListener('click', () => {
+                authErrorEl.textContent = '';
+                googleSigninText.classList.add('hidden');
+                googleSigninLoader.classList.remove('hidden');
+                googleSigninBtn.disabled = true;
+                const provider = new GoogleAuthProvider();
+                signInWithRedirect(auth, provider);
+            });
+
+            signOutBtn.addEventListener('click', async () => {
+                await signOut(auth);
+            });
             
-            const summary = await callGeminiAPI(prompt);
-            geminiModalContent.innerHTML = `<p>${summary.replace(/\n/g, '<br>')}</p>`;
-        });
+            // Profile Dropdown Logic
+            profileButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                profileDropdown.classList.toggle('hidden');
+            });
 
-        async function handleDraftReminder(person, amount) {
-            showGeminiModal('✨ AI Draft Reminder', true);
-            const prompt = `You are a professional business assistant. Draft a polite and brief reminder message for a client about a pending payment. The client's name is ${person} and the pending amount is ₹${amount}. Keep the tone friendly but professional. Do not include a subject line.`;
+            window.addEventListener('click', () => {
+                if (!profileDropdown.classList.contains('hidden')) {
+                    profileDropdown.classList.add('hidden');
+                }
+            });
+            // --- END AUTHENTICATION LOGIC ---
+
+
+            function switchMode(newMode) {
+                currentMode = newMode;
+                
+                personalModeBtn.classList.toggle('bg-yellow-500', newMode === 'personal');
+                personalModeBtn.classList.toggle('text-black', newMode === 'personal');
+                businessModeBtn.classList.toggle('bg-yellow-500', newMode === 'business');
+                businessModeBtn.classList.toggle('text-black', newMode === 'business');
+
+                const isBusiness = newMode === 'business';
+                personalView.classList.toggle('hidden', isBusiness);
+                businessView.classList.toggle('hidden', !isBusiness);
+                descriptionFieldWrapper.classList.toggle('hidden', isBusiness);
+                descriptionInput.required = !isBusiness;
+                typeFieldWrapper.classList.toggle('hidden', isBusiness);
+                submitBtn.parentElement.classList.toggle('md:grid-cols-2', isBusiness);
+                submitBtn.parentElement.classList.toggle('md:grid-cols-4', !isBusiness);
+                submitBtn.classList.toggle('md:col-start-2', isBusiness);
+                submitBtn.classList.toggle('md:col-start-4', !isBusiness);
+                personLabel.textContent = isBusiness ? 'Client' : 'Person';
+                modalTitle.textContent = isBusiness ? 'Select or Add Client' : 'Select or Add Person';
+                addPersonBtn.textContent = isBusiness ? 'Add Client' : 'Add Person';
+                newPersonNameInput.placeholder = isBusiness ? "Add new client's name" : "Add new person's name";
+                summarySection.classList.toggle('sm:grid-cols-2', isBusiness);
+                summarySection.classList.toggle('sm:grid-cols-3', !isBusiness);
+                dailyTotalCard.classList.toggle('hidden', isBusiness);
+                monthlyTotalLabel.textContent = isBusiness ? "This Month's Earnings" : "This Month's Spending";
+                receivableTotalLabel.textContent = isBusiness ? "Pending Collection" : "Pending to Collect";
+                budgetSection.classList.toggle('hidden', isBusiness);
+                personalChartContainer.classList.toggle('hidden', isBusiness);
+                businessChartContainer.classList.toggle('hidden', !isBusiness);
+                recurringOptionsWrapper.classList.toggle('hidden', isBusiness);
+                clientFilterWrapper.classList.toggle('hidden', !isBusiness);
+
+                unsubscribeAll();
+                clearAllLists();
+                
+                if (userId) {
+                    listenForData();
+                }
+                resetForm();
+            }
             
-            const reminder = await callGeminiAPI(prompt);
-            geminiModalContent.textContent = reminder;
-        }
+            function unsubscribeAll() {
+                unsubscribeTransactions();
+                unsubscribePeople();
+                unsubscribeSettings();
+                unsubscribeRecurring();
+            }
+            
+            function clearAllLists() {
+                 transactionList.innerHTML = '';
+                 upcomingList.innerHTML = '';
+                 collectedList.innerHTML = '';
+                 peopleListModal.innerHTML = '';
+                 recurringListModal.innerHTML = '';
+                 loadingState.style.display = 'block';
+            }
+            
+            function listenForData() {
+                if (!userId) return;
+                listenForTransactions();
+                listenForPeople();
+                if(currentMode === 'personal') {
+                    listenForRecurring();
+                    listenForSettings();
+                }
+            }
+            
+            searchInput.addEventListener('input', applyFiltersAndRender);
+            startDateFilter.addEventListener('change', applyFiltersAndRender);
+            endDateFilter.addEventListener('change', applyFiltersAndRender);
+            clientFilterSelect.addEventListener('change', applyFiltersAndRender);
+            exportCsvBtn.addEventListener('click', exportToCSV);
+            personalModeBtn.addEventListener('click', () => switchMode('personal'));
+            businessModeBtn.addEventListener('click', () => switchMode('business'));
+            
+            // Modal Logic
+            const modals = [peopleModal, budgetModal, recurringModal, geminiModal, confirmModal];
+            const closeButtons = [closeModalBtn, cancelBudgetBtn, closeRecurringModalBtn, closeGeminiModalBtn, confirmModalCancelBtn];
+            setBudgetBtn.addEventListener('click', () => budgetModal.classList.remove('hidden'));
+            personSelector.addEventListener('click', () => peopleModal.classList.remove('hidden'));
+            manageRecurringBtn.addEventListener('click', () => recurringModal.classList.remove('hidden'));
+            
+            modals.forEach(modal => {
+                modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.add('hidden'); });
+            });
+            closeButtons.forEach(btn => {
+                if (btn) {
+                    btn.addEventListener('click', () => btn.closest('.fixed').classList.add('hidden'));
+                }
+            });
 
-        copyGeminiContentBtn.addEventListener('click', () => {
-             const textToCopy = geminiModalContent.textContent;
-             const textArea = document.createElement("textarea");
-             textArea.value = textToCopy;
-             document.body.appendChild(textArea);
-             textArea.select();
-             try {
-                 document.execCommand('copy');
-                 copyGeminiContentBtn.textContent = "Copied!";
-             } catch (err) {
-                 console.error('Failed to copy text: ', err);
-             }
-             document.body.removeChild(textArea);
+            // People Management
+            addPersonForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const newName = newPersonNameInput.value.trim();
+                if (newName) {
+                    try {
+                        const initials = getInitials(newName);
+                        const photoURL = `https://placehold.co/64x64/4A5568/E2E8F0?text=${initials}`;
+                        await addDoc(collection(db, `artifacts/${appId}/users/${userId}/${currentMode}_people`), { name: newName, photoURL });
+                        addPersonForm.reset();
+                    } catch (error) { console.error("Error adding person:", error); }
+                }
+            });
 
-             setTimeout(() => { copyGeminiContentBtn.textContent = "Copy to Clipboard"; }, 2000);
-        });
-        
-        function resetForm() {
-            transactionForm.reset();
-            personInput.value = '';
-            selectedPersonNameEl.textContent = `Select a ${currentMode === 'business' ? 'client' : 'person'}`;
-            selectedPersonAvatar.classList.add('hidden');
-            selectedPersonAvatarPlaceholder.classList.remove('hidden');
-            recurringFieldsWrapper.classList.add('hidden');
-            isRecurringCheckbox.checked = false;
-        }
-        
-        // --- Spotlight Effect ---
-        function initSpotlightEffect() {
-            if (document.querySelector('.spotlight')) return; // Already initialized
+            peopleListModal.addEventListener('click', (e) => {
+                const personDiv = e.target.closest('.person-select-trigger');
+                if (personDiv) {
+                    const { name } = personDiv.dataset;
+                    personInput.value = name;
+                    selectedPersonNameEl.textContent = name;
+                    personSelector.classList.remove('ring-2', 'ring-red-500');
+                    
+                    const initials = getInitials(name);
+                    const photoURL = `https://placehold.co/64x64/4A5568/E2E8F0?text=${initials}`;
+                    selectedPersonAvatar.src = photoURL;
+                    selectedPersonAvatar.classList.remove('hidden');
+                    selectedPersonAvatarPlaceholder.classList.add('hidden');
+                    
+                    peopleModal.classList.add('hidden');
+                }
+            });
+            
+            // Transaction Form Logic
+            transactionForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const isBusiness = currentMode === 'business';
+                const person = personInput.value.trim();
+                const amount = parseFloat(amountInput.value);
+                const description = isBusiness ? `Payment from ${person}` : descriptionInput.value.trim();
+                const type = isBusiness ? 'receivable' : typeSelect.value;
+                const isRecurring = isRecurringCheckbox.checked;
 
-            const spotlight = document.createElement('div');
-            spotlight.className = 'spotlight';
-            document.body.appendChild(spotlight);
-            const spotlightRadius = 400;
+                let isPersonMandatory = isBusiness || (currentMode === 'personal' && type === 'receivable');
 
-            const handleMouseMove = e => {
-                const mainRect = mainContainer.getBoundingClientRect();
-                const mouseInside = e.clientX >= mainRect.left && e.clientX <= mainRect.right && e.clientY >= mainRect.top && e.clientY <= mainRect.bottom;
-
-                if (!mouseInside) {
-                    gsap.to(spotlight, { opacity: 0, duration: 0.3, ease: 'power2.out' });
-                    document.querySelectorAll('.glow-card').forEach(card => card.style.setProperty('--glow-intensity', '0'));
+                if (isPersonMandatory && !person) {
+                    personSelector.classList.add('ring-2', 'ring-red-500');
+                    setTimeout(() => personSelector.classList.remove('ring-2', 'ring-red-500'), 2000);
                     return;
                 }
-                
-                const proximity = spotlightRadius * 0.5;
-                const fadeDistance = spotlightRadius * 0.75;
-                let minDistance = Infinity;
 
-                document.querySelectorAll('.glow-card').forEach(card => {
-                    const cardRect = card.getBoundingClientRect();
-                    const centerX = cardRect.left + cardRect.width / 2;
-                    const centerY = cardRect.top + cardRect.height / 2;
-                    const distance = Math.hypot(e.clientX - centerX, e.clientY - centerY) - Math.max(cardRect.width, cardRect.height) / 2;
-                    const effectiveDistance = Math.max(0, distance);
-                    minDistance = Math.min(minDistance, effectiveDistance);
-                    
-                    let glowIntensity = 0;
-                    if (effectiveDistance <= proximity) glowIntensity = 1;
-                    else if (effectiveDistance <= fadeDistance) glowIntensity = 1 - ((effectiveDistance - proximity) / (fadeDistance - proximity));
-                    
-                    const relativeX = ((e.clientX - cardRect.left) / cardRect.width) * 100;
-                    const relativeY = ((e.clientY - cardRect.top) / cardRect.height) * 100;
-                    card.style.setProperty('--glow-x', `${relativeX}%`);
-                    card.style.setProperty('--glow-y', `${relativeY}%`);
-                    card.style.setProperty('--glow-intensity', glowIntensity.toString());
+                const isValid = !isNaN(amount) && amount > 0 && (isBusiness || description);
+
+                if (isValid) {
+                    try {
+                        const personToSave = person || '';
+                        if (isRecurring && currentMode === 'personal') {
+                            const startDateValue = startDateInput.value ? new Date(startDateInput.value) : new Date();
+                            const newRecurringTx = { 
+                                description, amount, person: personToSave, type, 
+                                frequency: frequencySelect.value, 
+                                nextDueDate: startDateValue, 
+                                createdAt: serverTimestamp(),
+                                mode: 'personal'
+                            };
+                            await addDoc(collection(db, `artifacts/${appId}/users/${userId}/recurring_transactions`), newRecurringTx);
+                        } else {
+                            const newTx = { description, amount, person: personToSave, type, createdAt: serverTimestamp() };
+                            if (isBusiness) newTx.status = 'upcoming';
+                            await addDoc(collection(db, `artifacts/${appId}/users/${userId}/${currentMode}_transactions`), newTx);
+                        }
+                        resetForm();
+                    } catch (error) { console.error("Error adding transaction: ", error); }
+                }
+            });
+
+
+            // Data Listeners
+            function listenForTransactions() {
+                unsubscribeTransactions = onSnapshot(query(collection(db, `artifacts/${appId}/users/${userId}/${currentMode}_transactions`)), (snapshot) => {
+                    loadingState.style.display = 'none';
+                    allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    applyFiltersAndRender();
+                }, (error) => console.error("Error fetching transactions: ", error));
+            }
+
+            function listenForPeople() {
+                const peopleColRef = collection(db, `artifacts/${appId}/users/${userId}/${currentMode}_people`);
+                unsubscribePeople = onSnapshot(query(peopleColRef), (snapshot) => {
+                    peopleListModal.innerHTML = '';
+                    clientFilterSelect.innerHTML = '<option value="">All Clients</option>';
+                    const newPeopleMap = {};
+                     if (snapshot.empty) {
+                         peopleListModal.innerHTML = `<p class="text-center text-gray-400">No ${currentMode === 'business' ? 'clients' : 'people'} added yet.</p>`;
+                     } else {
+                         snapshot.forEach(docSnap => {
+                             const person = docSnap.data();
+                             newPeopleMap[person.name] = person.photoURL || null;
+                             
+                             const initials = getInitials(person.name);
+                             const photoSrc = `https://placehold.co/40x40/4A5568/E2E8F0?text=${initials}`;
+
+                             const personEl = document.createElement('div');
+                             personEl.className = 'person-item p-2 rounded-xl flex items-center justify-between';
+                             personEl.innerHTML = `<div class="flex items-center cursor-pointer flex-grow person-select-trigger" data-name="${person.name}" data-photo="${photoSrc}"><img src="${photoSrc}" class="w-10 h-10 rounded-full object-cover mr-3"><span class="font-medium">${person.name}</span></div>`;
+                             peopleListModal.appendChild(personEl);
+
+                             if(currentMode === 'business') {
+                                 const option = document.createElement('option');
+                                 option.value = person.name;
+                                 option.textContent = person.name;
+                                 clientFilterSelect.appendChild(option);
+                             }
+                         });
+                     }
+                    peopleMap = newPeopleMap;
+                });
+            }
+            
+            function applyFiltersAndRender() {
+                let filtered = [...allTransactions];
+                
+                // Apply search term filter
+                const searchTerm = searchInput.value.toLowerCase();
+                if (searchTerm) {
+                    filtered = filtered.filter(tx => 
+                        (tx.description && tx.description.toLowerCase().includes(searchTerm)) || 
+                        (tx.person && tx.person.toLowerCase().includes(searchTerm))
+                    );
+                }
+                
+                // Apply client filter in business mode
+                if (currentMode === 'business') {
+                    const selectedClient = clientFilterSelect.value;
+                    if (selectedClient) {
+                        filtered = filtered.filter(tx => tx.person === selectedClient);
+                    }
+                }
+
+                // Apply date filters
+                const startDateValue = startDateFilter.value;
+                const endDateValue = endDateFilter.value;
+
+                if (startDateValue) {
+                    const startDate = new Date(startDateValue);
+                    startDate.setHours(0, 0, 0, 0); // Start of the day
+                    filtered = filtered.filter(tx => tx.createdAt && tx.createdAt.toDate() >= startDate);
+                }
+
+                if (endDateValue) {
+                    const endDate = new Date(endDateValue);
+                    endDate.setHours(23, 59, 59, 999); // End of the day
+                    filtered = filtered.filter(tx => tx.createdAt && tx.createdAt.toDate() <= endDate);
+                }
+
+
+                filtered.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+                updateUI(filtered);
+            }
+            
+            function updateUI(transactions) {
+                const formatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' });
+                const now = new Date();
+                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+                if (currentMode === 'business') {
+                    renderBusinessUI(transactions, formatter, startOfMonth);
+                } else {
+                    renderPersonalUI(transactions, formatter, startOfDay, startOfMonth);
+                }
+            }
+            
+            // UI Rendering
+            function renderPersonalUI(transactions, formatter, startOfDay, startOfMonth) {
+                transactionList.innerHTML = '';
+                let dailyTotal = 0, monthlyTotal = 0, receivableTotal = 0;
+                const expenseCategories = {};
+
+                if (transactions.length === 0) {
+                    transactionList.innerHTML = `<p class="text-gray-400 text-center py-4">No transactions found.</p>`;
+                } else {
+                    transactions.forEach(tx => {
+                        if (!tx.createdAt) return;
+                        const txType = tx.type || 'expense';
+
+                        if (txType === 'expense' && tx.createdAt.toMillis() >= startOfMonth) {
+                            monthlyTotal += tx.amount;
+                            if (tx.createdAt.toMillis() >= startOfDay) dailyTotal += tx.amount;
+                            const category = tx.description.split(' ')[0];
+                            expenseCategories[category] = (expenseCategories[category] || 0) + tx.amount;
+                        } else if (txType === 'receivable') {
+                            receivableTotal += tx.amount;
+                        }
+                        transactionList.appendChild(createTransactionElement(tx, 'personal'));
+                    });
+                }
+                dailyTotalEl.textContent = formatter.format(dailyTotal);
+                monthlyTotalEl.textContent = formatter.format(monthlyTotal);
+                receivableTotalEl.textContent = formatter.format(receivableTotal);
+                updateBudgetUI(monthlyTotal, formatter);
+                updateSpendingChart(expenseCategories);
+            }
+
+            function renderBusinessUI(transactions, formatter, startOfMonth) {
+                upcomingList.innerHTML = '';
+                collectedList.innerHTML = '';
+                let pendingCollection = 0, monthlyEarnings = 0;
+                const clientEarnings = {};
+
+                const upcoming = transactions.filter(tx => tx.status === 'upcoming');
+                const collected = transactions.filter(tx => tx.status === 'collected');
+                
+                upcoming.forEach(tx => {
+                    pendingCollection += tx.amount;
+                    upcomingList.appendChild(createTransactionElement(tx, 'business-upcoming'));
                 });
 
-                gsap.to(spotlight, { left: e.clientX, top: e.clientY, duration: 0.1, ease: 'power2.out' });
+                collected.forEach(tx => {
+                    if(tx.collectedAt && tx.collectedAt.toMillis() >= startOfMonth) {
+                        monthlyEarnings += tx.amount;
+                        clientEarnings[tx.person] = (clientEarnings[tx.person] || 0) + tx.amount;
+                    }
+                    collectedList.appendChild(createTransactionElement(tx, 'business-collected'));
+                });
                 
-                const targetOpacity = minDistance <= proximity ? 0.8 : minDistance <= fadeDistance ? ((fadeDistance - minDistance) / (fadeDistance - proximity)) * 0.8 : 0;
-                gsap.to(spotlight, { opacity: targetOpacity, duration: targetOpacity > 0 ? 0.2 : 0.5, ease: 'power2.out' });
-            };
+                if (upcoming.length === 0) upcomingList.innerHTML = `<p class="text-gray-400 text-center py-4">No upcoming payments.</p>`;
+                if (collected.length === 0) collectedList.innerHTML = `<p class="text-gray-400 text-center py-4">No collected payments yet.</p>`;
+                
+                monthlyTotalEl.textContent = formatter.format(monthlyEarnings);
+                receivableTotalEl.textContent = formatter.format(pendingCollection);
+                updateEarningsChart(clientEarnings);
+            }
+            
+            function createTransactionElement(tx, type) {
+                const item = document.createElement('div');
+                const txDate = tx.createdAt ? tx.createdAt.toDate() : new Date();
+                const initials = getInitials(tx.person || tx.description || '');
+                const placeholderUrl = `https://placehold.co/40x40/4A5568/E2E8F0?text=${initials || '??'}`;
+                const personPhotoURL = (tx.person && peopleMap[tx.person]) ? peopleMap[tx.person] : placeholderUrl;
+                
+                const isExpense = tx.type === 'expense';
+                let borderColor = isExpense ? 'border-red-500' : 'border-green-500';
+                if (type === 'business-upcoming') borderColor = 'border-yellow-500';
 
-            const handleMouseLeave = () => {
-                gsap.to(spotlight, { opacity: 0, duration: 0.3, ease: 'power2.out' });
-                document.querySelectorAll('.glow-card').forEach(card => card.style.setProperty('--glow-intensity', '0'));
-            };
+                item.className = `transaction-item flex items-center bg-gray-700 p-3 rounded-xl border-l-4 ${borderColor} transition duration-300`;
+                
+                let actionButtonsHTML = `<button data-id="${tx.id}" class="delete-btn ml-4 text-gray-500 hover:text-red-500"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`;
+                
+                if (type === 'business-upcoming') {
+                    actionButtonsHTML = `<button data-person="${tx.person}" data-amount="${tx.amount}" class="draft-reminder-btn ml-2 text-blue-400 hover:text-blue-300" title="Draft Reminder">✨</button><button data-id="${tx.id}" class="collect-btn ml-2 text-green-400 hover:text-green-300" title="Mark as collected"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></button><button data-id="${tx.id}" class="delete-btn ml-2 text-gray-500 hover:text-red-500" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`;
+                } else if (type === 'business-collected') {
+                     actionButtonsHTML = `<button data-id="${tx.id}" class="revert-btn ml-4 text-yellow-400 hover:text-yellow-300" title="Move to upcoming"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg></button>`;
+                }
+                const personLabelText = currentMode === 'business' ? 'From:' : 'To/From:';
+                const dateString = tx.status === 'collected' && tx.collectedAt ? `Collected: ${tx.collectedAt.toDate().toLocaleDateString('en-IN')}` : txDate.toLocaleString('en-IN', { day: 'numeric', month: 'short'});
+                item.innerHTML = `<div class="mr-3"><img src="${personPhotoURL}" class="w-10 h-10 rounded-full object-cover"></div><div class="flex-grow"><p class="font-semibold text-gray-100">${tx.description}</p>${tx.person ? `<p class="text-xs text-gray-400">${personLabelText} ${tx.person}</p>` : ''}<p class="text-xs text-gray-500">${dateString}</p></div><div class="text-right"><p class="font-bold text-lg ${isExpense ? 'text-red-500' : 'text-green-500'}">${isExpense ? '-' : '+'}₹${tx.amount.toFixed(2)}</p></div><div class="flex items-center">${actionButtonsHTML}</div>`;
+                return item;
+            }
+            
+            // Event Handlers for dynamic lists
+            personalView.addEventListener('click', e => { if (e.target.closest('.delete-btn')) deleteTransaction(e.target.closest('.delete-btn').dataset.id); });
+            businessView.addEventListener('click', e => {
+                const collectBtn = e.target.closest('.collect-btn');
+                const revertBtn = e.target.closest('.revert-btn');
+                const deleteBtn = e.target.closest('.delete-btn');
+                const draftBtn = e.target.closest('.draft-reminder-btn');
+                if (collectBtn) updateBusinessTransactionStatus(collectBtn.dataset.id, 'collected');
+                if (revertBtn) updateBusinessTransactionStatus(revertBtn.dataset.id, 'upcoming');
+                if (deleteBtn) deleteTransaction(deleteBtn.dataset.id);
+                if (draftBtn) handleDraftReminder(draftBtn.dataset.person, draftBtn.dataset.amount);
+            });
+            
+            async function deleteTransaction(docId) {
+                 try { await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/${currentMode}_transactions`, docId)); } 
+                 catch (error) { console.error("Error deleting transaction: ", error); }
+            }
+            async function updateBusinessTransactionStatus(docId, status) {
+                try {
+                    const updateData = { status };
+                    if (status === 'collected') updateData.collectedAt = serverTimestamp();
+                    else updateData.collectedAt = deleteField();
+                    await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/business_transactions`, docId), updateData);
+                } catch (error) { console.error("Error updating transaction status: ", error); }
+            }
 
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseleave', handleMouseLeave);
-        }
+            // Budget Feature
+            let monthlyBudget = 0;
+            budgetForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const newBudget = parseFloat(budgetAmountInput.value);
+                if (!isNaN(newBudget) && newBudget >= 0) {
+                    try {
+                        await setDoc(doc(db, `artifacts/${appId}/users/${userId}/settings`, 'budget'), { amount: newBudget });
+                        budgetModal.classList.add('hidden');
+                    } catch (error) { console.error("Error setting budget:", error); }
+                }
+            });
+            function listenForSettings() {
+                unsubscribeSettings = onSnapshot(doc(db, `artifacts/${appId}/users/${userId}/settings`, 'budget'), (docSnap) => {
+                    if (docSnap.exists()) {
+                        monthlyBudget = docSnap.data().amount;
+                        budgetAmountInput.value = monthlyBudget;
+                    } else { monthlyBudget = 0; }
+                    applyFiltersAndRender();
+                });
+            }
+            function updateBudgetUI(currentSpending, formatter) {
+                const progress = monthlyBudget > 0 ? (currentSpending / monthlyBudget) * 100 : 0;
+                budgetProgress.style.width = `${Math.min(progress, 100)}%`;
+                budgetProgress.classList.toggle('bg-green-500', progress < 75);
+                budgetProgress.classList.toggle('bg-yellow-500', progress >= 75 && progress < 90);
+                budgetProgress.classList.toggle('bg-red-500', progress >= 90);
+                budgetSummary.textContent = `${formatter.format(currentSpending)} / ${formatter.format(monthlyBudget)}`;
+            }
+            
+            // Charts Feature
+            const chartOptions = { plugins: { legend: { labels: { color: '#d1d5db' }}}, scales: { y: { ticks: { color: '#9ca3af' }}, x: { ticks: { color: '#9ca3af' }}}};
+            function updateSpendingChart(data) {
+                const labels = Object.keys(data);
+                const values = Object.values(data);
+                if (spendingChart) { spendingChart.destroy(); }
+                spendingChart = new Chart(spendingChartCanvas, { type: 'pie', data: { labels, datasets: [{ label: 'Spending', data: values, backgroundColor: ['#FBBF24', '#F87171', '#60A5FA', '#34D399', '#A78BFA'] }] }, options: { plugins: { legend: { position: 'right', labels: { color: '#d1d5db' } } } } });
+            }
+            function updateEarningsChart(data) {
+                const labels = Object.keys(data);
+                const values = Object.values(data);
+                if(earningsChart) { earningsChart.destroy(); }
+                earningsChart = new Chart(earningsChartCanvas, { type: 'bar', data: { labels, datasets: [{ label: 'Monthly Earnings', data: values, backgroundColor: '#FBBF24' }] }, options: chartOptions });
+            }
+            
+            // Recurring Transactions Feature
+            isRecurringCheckbox.addEventListener('change', () => recurringFieldsWrapper.classList.toggle('hidden', !isRecurringCheckbox.checked));
+            function listenForRecurring() {
+                unsubscribeRecurring = onSnapshot(query(collection(db, `artifacts/${appId}/users/${userId}/recurring_transactions`)), (snapshot) => {
+                    recurringListModal.innerHTML = '';
+                    if(snapshot.empty) recurringListModal.innerHTML = `<p class="text-center text-gray-400">No recurring transactions set.</p>`;
+                    snapshot.forEach(docSnap => {
+                        const tx = { id: docSnap.id, ...docSnap.data() };
+                        // Only show recurring transactions relevant to personal mode
+                        if (tx.mode === 'personal') {
+                            const item = document.createElement('div');
+                            item.className = 'flex items-center justify-between p-2 bg-gray-700 rounded-xl';
+                            item.innerHTML = `<div><p>${tx.description} - ₹${tx.amount} (personal)</p><p class="text-xs text-gray-400">Next on: ${tx.nextDueDate.toDate().toLocaleDateString()}</p></div><button data-id="${tx.id}" class="delete-recurring-btn text-red-500">Delete</button>`;
+                            recurringListModal.appendChild(item);
+                        }
+                    });
+                });
+            }
+            
+            // Confirmation Modal Logic
+            function showConfirmationModal(message, onConfirmCallback) {
+                confirmModalBody.textContent = message;
+                confirmModal.classList.remove('hidden');
+
+                const confirmHandler = () => {
+                    onConfirmCallback();
+                    confirmModal.classList.add('hidden');
+                    confirmModalConfirmBtn.removeEventListener('click', confirmHandler);
+                };
+                
+                const cancelHandler = () => {
+                     confirmModal.classList.add('hidden');
+                     confirmModalCancelBtn.removeEventListener('click', cancelHandler);
+                }
+
+                confirmModalConfirmBtn.addEventListener('click', confirmHandler, { once: true });
+                confirmModalCancelBtn.addEventListener('click', cancelHandler, { once: true });
+            }
+
+            recurringListModal.addEventListener('click', async e => {
+                const deleteBtn = e.target.closest('.delete-recurring-btn');
+                if (deleteBtn) {
+                     const docIdToDelete = deleteBtn.dataset.id;
+                     showConfirmationModal('Are you sure you want to delete this recurring transaction?', async () => {
+                         await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/recurring_transactions`, docIdToDelete));
+                     });
+                }
+            });
+            
+            // Clear Data Logic
+            async function deleteCollection(collectionPath) {
+                const q = query(collection(db, collectionPath));
+                const snapshot = await getDocs(q);
+                if (snapshot.empty) return;
+                const batch = writeBatch(db);
+                snapshot.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+            }
+
+            clearDataBtn.addEventListener('click', () => {
+                showConfirmationModal(`Are you sure you want to delete all ${currentMode} data? This includes all transactions, people/clients, and settings for this mode. This action cannot be undone.`, async () => {
+                    try {
+                        globalLoader.classList.remove('hidden');
+                        
+                        const transactionsPath = `artifacts/${appId}/users/${userId}/${currentMode}_transactions`;
+                        const peoplePath = `artifacts/${appId}/users/${userId}/${currentMode}_people`;
+                        
+                        await deleteCollection(transactionsPath);
+                        await deleteCollection(peoplePath);
+                        
+                        if (currentMode === 'personal') {
+                            const recurringPath = `artifacts/${appId}/users/${userId}/recurring_transactions`;
+                            await deleteCollection(recurringPath);
+                            await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/settings`, 'budget'));
+                        }
+                        
+                        console.log(`${currentMode} data cleared successfully.`);
+                        // The onSnapshot listeners will automatically update the UI to be empty.
+                    } catch (error) {
+                        console.error("Error clearing data:", error);
+                        authErrorEl.textContent = "Error clearing data. Please try again.";
+                    } finally {
+                        globalLoader.classList.add('hidden');
+                    }
+                });
+            });
+
+
+            async function checkAndProcessRecurringTransactions() {
+                if (!userId) return;
+                const now = new Date();
+                const q = query(collection(db, `artifacts/${appId}/users/${userId}/recurring_transactions`));
+                const snapshot = await getDocs(q);
+                snapshot.forEach(async (docSnap) => {
+                    const recurringTx = { id: docSnap.id, ...docSnap.data() };
+                    if (recurringTx.nextDueDate && recurringTx.nextDueDate.toDate) {
+                        const nextDueDate = recurringTx.nextDueDate.toDate();
+                        if (nextDueDate <= now) {
+                            const { description, amount, person, type, mode } = recurringTx;
+                            if(mode === 'personal') { // Only process personal recurring tx
+                                const newTx = { description, amount, person, type, createdAt: serverTimestamp() };
+                                await addDoc(collection(db, `artifacts/${appId}/users/${userId}/personal_transactions`), newTx);
+                                
+                                let newNextDate = new Date(nextDueDate);
+                                if (recurringTx.frequency === 'daily') newNextDate.setDate(newNextDate.getDate() + 1);
+                                if (recurringTx.frequency === 'weekly') newNextDate.setDate(newNextDate.getDate() + 7);
+                                if (recurringTx.frequency === 'monthly') newNextDate.setMonth(newNextDate.getMonth() + 1);
+
+                                await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/recurring_transactions`, recurringTx.id), { nextDueDate: newNextDate });
+                            }
+                        }
+                    }
+                });
+            }
+
+            // CSV Export
+            function exportToCSV() {
+                const startDateValue = document.getElementById('filter-start-date').value;
+                const endDateValue = document.getElementById('filter-end-date').value;
+                const selectedClient = document.getElementById('client-filter-select').value;
+
+                let transactionsToExport = allTransactions;
+
+                if (currentMode === 'business' && selectedClient) {
+                     transactionsToExport = transactionsToExport.filter(tx => tx.person === selectedClient);
+                }
+
+                if (startDateValue) {
+                    const startDate = new Date(startDateValue);
+                    startDate.setHours(0, 0, 0, 0); 
+                    transactionsToExport = transactionsToExport.filter(tx => tx.createdAt && tx.createdAt.toDate() >= startDate);
+                }
+
+                if (endDateValue) {
+                    const endDate = new Date(endDateValue);
+                    endDate.setHours(23, 59, 59, 999);
+                    transactionsToExport = transactionsToExport.filter(tx => tx.createdAt && tx.createdAt.toDate() <= endDate);
+                }
+
+                const isBusiness = currentMode === 'business';
+                const headers = isBusiness
+                    ? "Date,Description,Person,Amount,Type,Status"
+                    : "Date,Description,Person,Amount,Type";
+
+                const rows = transactionsToExport.map(tx => {
+                    let date = 'N/A';
+                    if (tx.createdAt) {
+                        const d = tx.createdAt.toDate();
+                        date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    }
+                    const description = `"${(tx.description || '').replace(/"/g, '""')}"`;
+                    
+                    const rowData = [`"${date}"`, description, tx.person || '', tx.amount, tx.type];
+
+                    if (isBusiness) {
+                        rowData.push(tx.status || 'N/A');
+                    }
+                    
+                    return rowData.join(',');
+                });
+
+                const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+
+                let filename = `${currentMode}_transactions.csv`;
+                if (startDateValue || endDateValue || (currentMode === 'business' && selectedClient)) {
+                    filename = `${currentMode}_transactions_filtered.csv`;
+                }
+
+                link.setAttribute("download", filename);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            // --- Gemini API Features ---
+            function getInitials(name) {
+                if (!name) return '??';
+                const parts = name.split(' ').filter(Boolean);
+                if (parts.length === 0) return '??';
+                if (parts.length === 1) return parts[0][0].toUpperCase();
+                return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+            }
+
+            async function callGeminiAPI(prompt, retries = 3, delay = 1000) {
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+                const payload = { contents: [{ parts: [{ text: prompt }] }] };
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        throw new Error(`API call failed with status: ${response.status}`);
+                    }
+                    const result = await response.json();
+                    return result.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
+                } catch (error) {
+                    if (retries > 0) {
+                        await new Promise(res => setTimeout(res, delay));
+                        return callGeminiAPI(prompt, retries - 1, delay * 2);
+                    }
+                    console.error("Error calling Gemini API:", error);
+                    return "An error occurred while contacting the AI assistant.";
+                }
+            }
+            
+            function showGeminiModal(title, showCopyButton = false) {
+                geminiModal.classList.remove('hidden');
+                geminiModalTitle.textContent = title;
+                geminiModalActions.classList.toggle('hidden', !showCopyButton);
+                geminiModalContent.innerHTML = `<div class="flex justify-center items-center h-32"><div class="loader"></div></div>`;
+            }
+            
+            getSummaryBtn.addEventListener('click', async () => {
+                showGeminiModal('✨ Smart Summary');
+                const recentTransactions = allTransactions
+                    .slice(0, 20) // Use last 20 transactions
+                    .map(tx => `${tx.type === 'expense' ? 'Spent' : 'Received'} ₹${tx.amount} on ${tx.description}`)
+                    .join('\n');
+                
+                if (!recentTransactions) {
+                    geminiModalContent.innerHTML = "<p>Not enough transaction data to generate a summary.</p>";
+                    return;
+                }
+
+                const prompt = `You are a friendly financial assistant. Based on the following recent transactions, provide a brief, one-paragraph summary of my spending habits. Identify my top spending category and offer one simple, actionable tip to save money. Keep the tone encouraging and positive. Here are the transactions:\n${recentTransactions}`;
+                
+                const summary = await callGeminiAPI(prompt);
+                geminiModalContent.innerHTML = `<p>${summary.replace(/\n/g, '<br>')}</p>`;
+            });
+
+            async function handleDraftReminder(person, amount) {
+                showGeminiModal('✨ AI Draft Reminder', true);
+                const prompt = `You are a professional business assistant. Draft a polite and brief reminder message for a client about a pending payment. The client's name is ${person} and the pending amount is ₹${amount}. Keep the tone friendly but professional. Do not include a subject line.`;
+                
+                const reminder = await callGeminiAPI(prompt);
+                geminiModalContent.textContent = reminder;
+            }
+
+            copyGeminiContentBtn.addEventListener('click', () => {
+                 const textToCopy = geminiModalContent.textContent;
+                 const textArea = document.createElement("textarea");
+                 textArea.value = textToCopy;
+                 document.body.appendChild(textArea);
+                 textArea.select();
+                 try {
+                     document.execCommand('copy');
+                     copyGeminiContentBtn.textContent = "Copied!";
+                 } catch (err) {
+                     console.error('Failed to copy text: ', err);
+                 }
+                 document.body.removeChild(textArea);
+
+                 setTimeout(() => { copyGeminiContentBtn.textContent = "Copy to Clipboard"; }, 2000);
+            });
+            
+            function resetForm() {
+                transactionForm.reset();
+                personInput.value = '';
+                selectedPersonNameEl.textContent = `Select a ${currentMode === 'business' ? 'client' : 'person'}`;
+                selectedPersonAvatar.classList.add('hidden');
+                selectedPersonAvatarPlaceholder.classList.remove('hidden');
+                recurringFieldsWrapper.classList.add('hidden');
+                isRecurringCheckbox.checked = false;
+            }
+            
+            // --- Spotlight Effect ---
+            function initSpotlightEffect() {
+                if (document.querySelector('.spotlight')) return; // Already initialized
+
+                const spotlight = document.createElement('div');
+                spotlight.className = 'spotlight';
+                document.body.appendChild(spotlight);
+                const spotlightRadius = 400;
+
+                const handleMouseMove = e => {
+                    const mainRect = mainContainer.getBoundingClientRect();
+                    const mouseInside = e.clientX >= mainRect.left && e.clientX <= mainRect.right && e.clientY >= mainRect.top && e.clientY <= mainRect.bottom;
+
+                    if (!mouseInside) {
+                        gsap.to(spotlight, { opacity: 0, duration: 0.3, ease: 'power2.out' });
+                        document.querySelectorAll('.glow-card').forEach(card => card.style.setProperty('--glow-intensity', '0'));
+                        return;
+                    }
+                    
+                    const proximity = spotlightRadius * 0.5;
+                    const fadeDistance = spotlightRadius * 0.75;
+                    let minDistance = Infinity;
+
+                    document.querySelectorAll('.glow-card').forEach(card => {
+                        const cardRect = card.getBoundingClientRect();
+                        const centerX = cardRect.left + cardRect.width / 2;
+                        const centerY = cardRect.top + cardRect.height / 2;
+                        const distance = Math.hypot(e.clientX - centerX, e.clientY - centerY) - Math.max(cardRect.width, cardRect.height) / 2;
+                        const effectiveDistance = Math.max(0, distance);
+                        minDistance = Math.min(minDistance, effectiveDistance);
+                        
+                        let glowIntensity = 0;
+                        if (effectiveDistance <= proximity) glowIntensity = 1;
+                        else if (effectiveDistance <= fadeDistance) glowIntensity = 1 - ((effectiveDistance - proximity) / (fadeDistance - proximity));
+                        
+                        const relativeX = ((e.clientX - cardRect.left) / cardRect.width) * 100;
+                        const relativeY = ((e.clientY - cardRect.top) / cardRect.height) * 100;
+                        card.style.setProperty('--glow-x', `${relativeX}%`);
+                        card.style.setProperty('--glow-y', `${relativeY}%`);
+                        card.style.setProperty('--glow-intensity', glowIntensity.toString());
+                    });
+
+                    gsap.to(spotlight, { left: e.clientX, top: e.clientY, duration: 0.1, ease: 'power2.out' });
+                    
+                    const targetOpacity = minDistance <= proximity ? 0.8 : minDistance <= fadeDistance ? ((fadeDistance - minDistance) / (fadeDistance - proximity)) * 0.8 : 0;
+                    gsap.to(spotlight, { opacity: targetOpacity, duration: targetOpacity > 0 ? 0.2 : 0.5, ease: 'power2.out' });
+                };
+
+                const handleMouseLeave = () => {
+                    gsap.to(spotlight, { opacity: 0, duration: 0.3, ease: 'power2.out' });
+                    document.querySelectorAll('.glow-card').forEach(card => card.style.setProperty('--glow-intensity', '0'));
+                };
+
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseleave', handleMouseLeave);
+            }
+        });
     </script>
 </body>
 </html>
