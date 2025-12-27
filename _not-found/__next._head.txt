@@ -1,0 +1,8 @@
+1:"$Sreact.fragment"
+2:I[49046,["/TrackSpense/_next/static/chunks/237a47e953b10025.js","/TrackSpense/_next/static/chunks/32e182d888caa39f.js"],"ViewportBoundary"]
+4:I[49046,["/TrackSpense/_next/static/chunks/237a47e953b10025.js","/TrackSpense/_next/static/chunks/32e182d888caa39f.js"],"MetadataBoundary"]
+5:"$Sreact.suspense"
+7:I[1785,["/TrackSpense/_next/static/chunks/237a47e953b10025.js","/TrackSpense/_next/static/chunks/32e182d888caa39f.js"],"IconMark"]
+0:{"buildId":"Egge7oXTdJ3zpjHUo3bwh","rsc":["$","$1","h",{"children":[["$","meta",null,{"name":"robots","content":"noindex"}],["$","$L2",null,{"children":"$@3"}],["$","div",null,{"hidden":true,"children":["$","$L4",null,{"children":["$","$5",null,{"name":"Next.Metadata","children":"$@6"}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}],"loading":null,"isPartial":false}
+3:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"}],["$","meta","2",{"name":"theme-color","content":"#f5c842"}]]
+6:[["$","title","0",{"children":"TrackSpense - Transaction Tracker"}],["$","meta","1",{"name":"description","content":"Track your personal expenses and business transactions with ease"}],["$","link","2",{"rel":"manifest","href":"/manifest.json"}],["$","meta","3",{"name":"generator","content":"v0.app"}],["$","meta","4",{"name":"mobile-web-app-capable","content":"yes"}],["$","meta","5",{"name":"apple-mobile-web-app-title","content":"TrackSpense"}],["$","meta","6",{"name":"apple-mobile-web-app-status-bar-style","content":"default"}],["$","link","7",{"rel":"icon","href":"/app-icon.png"}],["$","link","8",{"rel":"apple-touch-icon","href":"/app-icon-square.png"}],["$","$L7","9",{}]]
